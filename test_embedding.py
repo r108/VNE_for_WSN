@@ -122,7 +122,7 @@ def generate_plot(G,shortest_path, path,plt,weight_flag):
     fixed_positions = dict()
     for n in G.nodes(data=False):
         fixed_positions.update({n: positions[n]})
-    # fixed_positions = dict(x,d for x,d in fixed_positions if x  in G.nodes(data=False))
+    #fixed_positions = dict((n,d) for n,d in fixed_positions if n in G.nodes(data=False))
 
     fixed_nodes = fixed_positions.keys()
 
@@ -141,10 +141,10 @@ def generate_plot(G,shortest_path, path,plt,weight_flag):
     nx.draw_networkx_nodes(G, pos, ax=plt, node_size=300, node_color=colors)
     # edges
     # nx.draw_networkx_edges(G,pos,edgelist=elarge,width=2)
-    nx.draw_networkx_edges(G, pos, ax=plt, edgelist=eembed, width=10, edge_color='r')
+    nx.draw_networkx_edges(G, pos, ax=plt, edgelist=eembed, width=2, edge_color='r')
 
     nx.draw_networkx_edges(G, pos, ax=plt, edgelist=esmall,
-                           width=4, alpha=0.5, edge_color='b', style='dashed')
+                           width=1, edge_color='b', style='dashed')
     # labels
     nx.draw_networkx_labels(G, pos, ax=plt, font_size=15, font_family='sans-serif')
     nx.draw_networkx_edge_labels(G, pos, ax=plt, edge_labels=edge_labels,label_pos=0.3, font_size=12)
@@ -381,7 +381,7 @@ def embed_vn(VN):
     config.avoid = [(0,0)]
     verify(link_reqiurement, frm, to, node_requirement)
 
-def get_conflicting_links(path_nodes):
+def get_conflicting_links_old(path_nodes):
     p_nodes = []
     p_nodes.extend(path_nodes)
     counter1 = 0
@@ -412,6 +412,52 @@ def get_conflicting_links(path_nodes):
     print("ccounter1 ",counter1)
 
     return elist, elist2
+
+
+def get_conflicting_links(path_nodes):
+    tx_nodes = copy.deepcopy(path_nodes)
+    tx_nodes.pop()
+    print("tx_nodes",tx_nodes,"\npath_nodes",path_nodes)
+    visited_nodes = []
+    effected_edges = []
+    for i,tx in enumerate(tx_nodes):
+        print(i,"visit tx", tx)
+        visited_nodes.append(tx)
+        print(tx,"appended to visited nodes", visited_nodes)
+        for n in config.reduced_adj.get(tx):
+            print(tx,"-> visit n", n)
+            if n not in visited_nodes:
+                print("add if n not in []",visited_nodes)
+                effected_edges.append((tx, n))
+                effected_edges.append((n, tx))
+            for nn in config.reduced_adj.get(n):
+                print(n, "->-> visit nn", nn)
+                if nn not in visited_nodes:
+                    print("add if nn not in []", visited_nodes)
+                    effected_edges.append((n, nn))
+                    effected_edges.append((nn, n))
+
+            visited_nodes.append(n)
+            print(n, "appended to visited nodes in tx", visited_nodes)
+            print(i," in length",len(path_nodes))
+
+        rx = path_nodes[i+1]
+        print(i, "visit rx", rx)
+        for n in config.reduced_adj.get(rx):
+            print(rx, "-> visit n", n)
+            for nn in config.reduced_adj.get(n):
+                print(n, "->-> visit nn", nn)
+                if nn not in visited_nodes:
+                    print("add if nn not in []", visited_nodes)
+                    effected_edges.append((n, nn))
+            visited_nodes.append(n)
+            print(n, "appended to visited nodes in rx", visited_nodes)
+
+    effected_edges_set = list(set(effected_edges))
+
+    return effected_edges, effected_edges_set
+
+
 
 if __name__ == '__main__':
 
