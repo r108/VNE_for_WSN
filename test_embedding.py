@@ -109,14 +109,6 @@ def show_graph_plot(G,shortest_path, path):
 
 def generate_plot(G,shortest_path, path,plt,weight_flag):
 
-    print("G",type(G),"|",G)
-    print("G.nodes type",type(G.nodes()),"|",G.nodes())
-    print("G.edges type",type(G.edges()),"|",G.edges())
-
-
-
-
-
     embeding_positions = list(map(int, path))
     colors = []
 
@@ -155,7 +147,7 @@ def generate_plot(G,shortest_path, path,plt,weight_flag):
                            width=4, alpha=0.5, edge_color='b', style='dashed')
     # labels
     nx.draw_networkx_labels(G, pos, ax=plt, font_size=15, font_family='sans-serif')
-    nx.draw_networkx_edge_labels(G, pos, ax=plt, edge_labels=edge_labels, label_pos=0.3, font_size=12)
+    nx.draw_networkx_edge_labels(G, pos, ax=plt, edge_labels=edge_labels,label_pos=0.3, font_size=12)
 
 
 def display_data_structs():
@@ -206,13 +198,13 @@ def commit_vn(VN_nodes, VN_links, required_load,e_list, e_list2, path_nodes, sho
 
     fig = plt.figure(figsize=(30,15),dpi=150)
 
-    plt1 = fig.add_subplot(1, 3, 1)
+    plt1 = fig.add_subplot(1, 2, 1)
 
     generate_plot(VN_links, shortest_path, path_nodes, plt1, False)
-    plt1 = fig.add_subplot(1, 3, 2)
-    generate_plot(WSN_Links, shortest_path, path_nodes, plt1, False)
-    plt1 = fig.add_subplot(1, 3, 3)
-    generate_plot(WSN_Links, shortest_path, path_nodes, plt1, True)
+    plt1 = fig.add_subplot(1, 2, 2)
+    generate_plot(wsn, shortest_path, path_nodes, plt1, False)
+#    plt1 = fig.add_subplot(1, 2, 2)
+#    generate_plot(wsn, shortest_path, path_nodes, plt1, True)
     config.plot_counter += 1
 
     plt.axis('on')
