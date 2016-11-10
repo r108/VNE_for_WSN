@@ -45,17 +45,17 @@ def update_node_attributes(Nodes, node, load):
 def update_link_attributes(u, v, plr, load):
 
     if plr is -1:
-        wsn[u][v]['plr'] = wsn[u][v]['plr']
+        wsn_for_this_perm[u][v]['plr'] = wsn_for_this_perm[u][v]['plr']
     else:
-        wsn[u][v]['plr'] += plr
+        wsn_for_this_perm[u][v]['plr'] += plr
     if load is -1:
-        wsn[u][v]['load'] = wsn[u][v]['load']
+        wsn_for_this_perm[u][v]['load'] = wsn_for_this_perm[u][v]['load']
     else:
-        wsn[u][v]['load'] += load
+        wsn_for_this_perm[u][v]['load'] += load
 
-    link_weight = LinkCost(wsn[u][v]['plr'], wsn[u][v]['load'])
-    wsn[u][v]['weight'] = link_weight.get_weight(link_weight)
-    link_weights[(u, v)] = link_weight.get_weight(link_weight)
+    link_weight = LinkCost(wsn_for_this_perm[u][v]['plr'], wsn_for_this_perm[u][v]['load'])
+    wsn_for_this_perm[u][v]['weight'] = link_weight.get_weight(link_weight)
+    link_weights_for_this_perm[(u, v)] = link_weight.get_weight(link_weight)
 
 
 def display_edge_attr(G):
@@ -173,7 +173,7 @@ def display_data_structs():
 ######################################################################################################
 
 def map_links(e_list, e_list2, required_load):
-    print("@@",e_list2)
+#    print("@@",e_list2)
     for u,v in e_list2:
         update_link_attributes(int(u), int(v), -1, (e_list.count((u,v)) * required_load))
         #if (e_fr,e_to) not in config.allocated_links_weight:
@@ -235,6 +235,12 @@ def commit(VN_nodes, VN_links, required_load,e_list, e_list2, path_nodes, shorte
     map_links(e_list, e_list2, required_load)
     vn = (VN_nodes, VN_links, shortest_path, path_nodes)
     config.VWSNs.append(vn)
+    print(vn[3])
+    print(config.VWSNs)
+
+#    str = input("commit: ")
+#    if str != "":
+#        pass
 
 #    print("config.link_weights after commit= ", config.link_weights)
 #    print("original link_weights after commit", link_weights)
@@ -243,32 +249,15 @@ def commit(VN_nodes, VN_links, required_load,e_list, e_list2, path_nodes, shorte
 #    display_node_attr(wsn)
 #    display_vn_node_allocation(VN_nodes)
 #    display_vn_edge_allocation(VN_links)
-'''
-    fig = plt.figure(figsize=(30,15),dpi=150)
-#    if len(config.VWSNs) == 1:
-    config.VN_l1 = copy.deepcopy(VN_links)
-    config.sp1 = copy.deepcopy(path_nodes)
- #   elif len(config.VWSNs) == 2:
-    plt1 = fig.add_subplot(1, 3, 1)
-    generate_plot(VN_links, shortest_path, path_nodes, plt1, False)
-    plt1 = fig.add_subplot(1, 3, 2)
-    generate_plot(wsn, shortest_path, path_nodes, plt1, False)
-    plt1 = fig.add_subplot(1, 3, 3)
-    generate_plot(wsn, shortest_path, [], plt1, True)
-    config.plot_counter += 1
-
-    plt.axis('on')
-    plt.savefig("graph_" + str(config.plot_counter) + ".png")  # save as png
-'''
 
 def check_link_constraints(e_list, e_list2, load, required_plr, shortest_path):
     VN_links = nx.DiGraph()
-    print("check_link_constraints for load",load)
+#    print("check_link_constraints for load",load)
     required_load = []
     for u,v in e_list2:
         required_load = load * e_list.count((u,v))
-        if wsn.edge[u][v]['load'] + required_load > 100:
-            print("Link",u, v,"requires",wsn.edge[u][v]['load']," + ",required_load, "but have not got enough")
+        if wsn_for_this_perm.edge[u][v]['load'] + required_load > 100:
+ #           print("Link",u, v,"requires",wsn.edge[u][v]['load']," + ",required_load, "but have not got enough")
             return (u,v),VN_links
         else:
             VN_links.add_edge(u,v, {'load':required_load})
@@ -280,18 +269,18 @@ def check_link_constraints(e_list, e_list2, load, required_plr, shortest_path):
 def check_node_constraints(nodes_in_path, required_load):
     VN_nodes = nx.DiGraph()
     #print("checking nodes -----",nodes_in_path)
-    print("check_node_constraints")
+    #print("check_node_constraints")
     for idx,n in enumerate(nodes_in_path):
         VN_nodes.add_node(n, {'load': required_load})
-        if wsn.node[n]['load'] + required_load > 100:
+        if wsn_for_this_perm.node[n]['load'] + required_load > 100:
             if idx == 0:
-                    print("Source node",n," has - ",wsn.node[n]['load'],"but require",+ required_load )
+                    #print("Source node",n," has - ",wsn.node[n]['load'],"but require",+ required_load )
                     return n, VN_nodes
             elif idx == (len(nodes_in_path) - 1):
-                    print("Sink node",n,"has - ",wsn.node[n]['load'],"but require",+ required_load )
+                    #print("Sink node",n,"has - ",wsn.node[n]['load'],"but require",+ required_load )
                     return n, VN_nodes
             else:
-                    print("Relay node",n,"has - ",wsn.node[n]['load'],"but require",+ required_load )
+                    #print("Relay node",n,"has - ",wsn.node[n]['load'],"but require",+ required_load )
                     return n, VN_nodes
     return 0, VN_nodes
 
@@ -316,7 +305,7 @@ def get_shortest_path(graph, frm, to):
 
         if idx != len(path) - 1:
             shortest_path.append((path[idx], path[idx + 1]))
-    print("Shortest path links  ", shortest_path,"\n")
+#    print("Shortest path links  ", shortest_path,"\n")
     return shortest_path, path
 
 
@@ -329,16 +318,15 @@ def verify_feasibility(link_reqiurement, frm, to, node_requirement):
         print("node ", node_check, "does not have enough resource\nEMBEDDING FAILED!")
         return
     else:
-        print("source and sink nodes have enough resource")
-    print("call sp",config.link_weights)
+        #print("source and sink nodes have enough resource")
+        pass
     shortest_path, path_nodes = get_shortest_path(config.current_wsn, frm, to)
-    print(shortest_path)
-    print(path_nodes)
+
     if shortest_path is None:
         print("No feasible path!\nEMBEDDING HAS FAILED!")
         return
-    else:
-        print("Feasible path exists |", shortest_path)
+    #else:
+        #print("Feasible path exists |", shortest_path)
 
     e_list, e_list2 = get_conflicting_links(path_nodes)
 
@@ -356,39 +344,34 @@ def verify_feasibility(link_reqiurement, frm, to, node_requirement):
         print("node ", node_check, "does not have enough resource\nEMBEDDING FAILED!")
         return
     else:
-        print("all nodes in path have enough resource")
+        #print("all nodes in path have enough resource")
+        pass
 
     link_check, VN_links = check_link_constraints(e_list, e_list2, link_reqiurement['load'], link_reqiurement['plr'],shortest_path)
 
     if link_check != (0,0):
-        print("link_check is", link_check)
-        if config.counter_value > 50:
-            print(link_check, "do not have enough resource")
-            print("EMBEDDING HAS FAILED!!")
-            #return
+#        print("link_check is", link_check)
 
         if link_check not in config.avoid:
-            print("was not in link_check ", link_check)
+            #print("was not in link_check ", link_check)
             config.avoid.append(link_check)
-        else:
-            print("already in link_check ", link_check)
 
         if link_check not in config.failed_links_list:
-            print(link_check,"was added to config.failed_links_list", config.failed_links_list)
+            #print(link_check,"was added to config.failed_links_list", config.failed_links_list)
             config.failed_links_list.append(link_check)
 
-        print(link_check,"need more")
 #        verify(link_reqiurement, frm, to, node_requirement)
         if recalculate_path_weights(frm,to,path_nodes,shortest_path):
             verify_feasibility(link_reqiurement, frm, to, node_requirement)
         else:
             return
     else:
-        print("edges have enough resource")
+        #print("edges have enough resource")
         print("++SUCCESSFUL EMBEDDING++")
         config.feasible = True
         config.has_embedding = True
         commit(VN_nodes, VN_links, node_requirement, e_list, e_list2, path_nodes, shortest_path)
+
 
 
 def verify(link_reqiurement, frm, to, node_requirement):
@@ -475,11 +458,10 @@ def recalculate_path_weights(frm,to,path_nodes,shortest_path):
 
 
     for (u, v) in config.avoid:
-        if (1, 2) in shortest_path:
-            str = input("continue:")
-
-            if str != "":
-                print("OK")
+#        if (1, 2) in shortest_path:
+#            str = input("continue:")
+#            if str != "":
+#                pass
         config.avoid.remove((u, v))
         config.current_wsn[u][v]['weight'] = 10000000
         config.penalized_list.append((u, v))
@@ -499,11 +481,6 @@ def recalculate_path_weights(frm,to,path_nodes,shortest_path):
         shared_neighbors_v = list(set(path_nodes) & set(config.reduced_adj.get(v)))
         common_neighbors = list(set(shared_neighbors_u) | set(shared_neighbors_v))
 
-        print("ccconfig.avoid after", config.avoid)
-
-
-
-
         for idx, n in enumerate(path_nodes):
             if (u, v) in shortest_path:
                print(u,v,"u-v link in path does not have enough resource!???????")
@@ -511,7 +488,7 @@ def recalculate_path_weights(frm,to,path_nodes,shortest_path):
                    if len(path_nodes)>2:
                        print("path length is 2 nodes")
                    else:
-                       print("sink node", v, "does not have enough resource.\nEMBEDDING HAS FAILED!")
+                       print("Sink node v", v, "does not have enough resource.\nEMBEDDING HAS FAILED!")
                        return False
             elif (v, u) in shortest_path:
                 print(v, u,"v-u link in path does not have enough resource!??????")
@@ -521,30 +498,27 @@ def recalculate_path_weights(frm,to,path_nodes,shortest_path):
                     if len(path_nodes) > 2:
                         print("path length is 2 nodes")
                     else:
-                        print("sink node", v, "does not have enough resource.\nEMBEDDING HAS FAILEDDD!")
+                        print("SSink node v", v, "does not have enough resource.\nEMBEDDING HAS FAILED!")
                         return False
             elif u in path_nodes:
+                i = path_nodes.index(u)
+                # print(u,"index is",i)
+                config.current_wsn[path_nodes[i - 1]][path_nodes[i]]['weight'] = 10000000
+                config.penalized_list.append((path_nodes[i - 1], path_nodes[i]))
+
                 if u == frm:
 #                   if len(path_nodes) > 2:
-                    print("source node u", u, "does not have enough resource.\nEMBEDDING HAS FAILED!")
+                    print("SSource node u", u, "does not have enough resource.\nEMBEDDING HAS FAILED!")
                     return False
-
-                i = path_nodes.index(u)
-                print(u,"index is",i)
-                config.current_wsn[path_nodes[i-1]][path_nodes[i]]['weight'] = 10000000
-                config.penalized_list.append((path_nodes[i-1],path_nodes[i]))
 
             elif v in path_nodes:
+                i = path_nodes.index(v)
+                config.current_wsn[path_nodes[i - 1]][path_nodes[i]]['weight'] = 10000000
+                config.penalized_list.append((path_nodes[i - 1], path_nodes[i]))
                 if v == frm:
  #                   if len(path_nodes) > 2:
-                    print("source node v", v, "does not have enough resource.\nEMBEDDING HAS FAILED!")
+                    print("SSource node v", v, "does not have enough resource.\nEMBEDDING HAS FAILED!")
                     return False
-
-                i = path_nodes.index(v)
-                config.current_wsn[path_nodes[i-1]][path_nodes[i]]['weight'] = 10000000
-                config.penalized_list.append((path_nodes[i-1],path_nodes[i]))
-
-
             else:
 
                 highest = 0
@@ -559,90 +533,13 @@ def recalculate_path_weights(frm,to,path_nodes,shortest_path):
     print("**", config.current_wsn)
     show_penalized_links()
     return True
-'''
-                list(set(config.reduced_adj.get(n)) & set(config.reduced_adj.get(u)))
-                shared_neighbor = list(set(config.reduced_adj.get(n)) & set(config.reduced_adj.get(u)))
 
-            elif u in two_hops_of_u:
-
-            elif n == u:
-                for in_n in config.reduced_adj.get(u):
-                    config.current_wsn[in_n][u]['weight'] = 10000000
-                    config.penalized_list.append((in_n, u))
-
-
-            elif n == v:
-                for in_n in config.reduced_adj.get(v):
-                    config.current_wsn[in_n][v]['weight'] = 10000000
-                    config.penalized_list.append((in_n,v))
-                if v == to:
-                    if len(path_nodes) > 2:
-                        shared_neighbor = list(set(config.reduced_adj.get(to))&set(config.reduced_adj.get(path_nodes[idx-2]['weight'])))
-                    if shared_neighbor:
-                        config.current_wsn[path_nodes[idx-2]][path_nodes[idx-1]]['weight'] = 10000000
-                        config.penalized_list.append((path_nodes[idx-2], path_nodes[idx-1]))
-                        for sn in shared_neighbor:
-                            config.current_wsn[path_nodes[idx - 2]][sn]['weight'] = 10000000
-                            config.penalized_list.append((path_nodes[idx - 2], sn))
-                    else:
-                        print("sink node", u, "does not have enough resource.\nEMBEDDING HAS FAILED!")
-                        break
-            elif n in two_hops_of_u:
-                if n == frm:
-                    print("two hop neighbor",u,"of source node",frm," does not have enough resource.\nEMBEDDING HAS FAILED!")
-#                    config.current_wsn[n][path_nodes[idx + 1]]['weight'] = 10000000
-#                    config.penalized_list.append((n, path_nodes[idx + 1]))
-                    print("SSSSSSSSSSSSSource")
-                    break
-                if n == to:
-                    print("two hop neighbor",u,"of sink node",to," does not have enough resource.\nEMBEDDING HAS FAILED!")
-                    break
-                config.current_wsn[n][path_nodes[idx+1]]['weight'] = 10000000
-                config.penalized_list.append((n, path_nodes[idx+1]))
-
-                for in_n in config.reduced_adj.get(u):
-                    config.current_wsn[in_n][u]['weight'] = 10000000
-                    config.penalized_list.append((in_n,u))
-
-                shared_neighbor = list(set(config.reduced_adj.get(n)) & set(config.reduced_adj.get(u)))
-                for sn in shared_neighbor:
-                    config.current_wsn[n][sn]['weight'] = 10000000
-                    config.penalized_list.append((n,sn))
-
-            elif n in two_hops_of_v:
-                if n == frm:
-                    print("two hop neighbor", v, "of source node", frm,
-                          " does not have enough resource.\nEMBEDDING HAS FAILED!")
-                    config.current_wsn[n][path_nodes[idx + 1]]['weight'] = 10000000
-                    config.penalized_list.append((n, path_nodes[idx + 1]))
-                    print("Source")
-                    break
-
-                if n == to:
-                    print("sink node", n, "does not have enough resource.")
-                    str = input("continue:")
-                    if str != "":
-                        break
-                else:
-                    config.current_wsn[n][path_nodes[idx + 1]]['weight'] = 10000000
-                    config.penalized_list.append((n,path_nodes[idx + 1]))
-
-                for in_n in config.reduced_adj.get(v):
-                    config.current_wsn[in_n][v]['weight'] = 10000000
-                    config.penalized_list.append((in_n,v))
-
-                shared_neighbor = list(set(config.reduced_adj.get(n)) & set(config.reduced_adj.get(v)))
-                for sn in shared_neighbor:
-                    config.current_wsn[n][sn]['weight'] = 10000000
-                    config.penalized_list.append((n,sn))
-'''
 
 
 def recalculate_path_weights0(frm,to,path_nodes,shortest_path):
     show_penalized_links()
     print("config.avoid", config.avoid, "\n", path_nodes, "\n", config.link_weights)
     str = input("continue:")
-
     if str != "":
         print("OK")
 
@@ -930,7 +827,7 @@ def get_conflicting_links(path_nodes):
     tx_nodes.pop()
 #    print("tx_nodes",tx_nodes,"\npath_nodes",path_nodes)
     effected_edges = []
-    print("initialize effected_edges",effected_edges)
+#    print("initialize effected_edges",effected_edges)
 
     for i,tx in enumerate(tx_nodes):
         visited_nodes = []
@@ -967,23 +864,29 @@ def get_conflicting_links(path_nodes):
 #                print(n, "appended to visited nodes in rx", visited_nodes)
 
     effected_edges_set = list(set(effected_edges))
-    print("return effected_edges",effected_edges)
-    print("return effected_edges_set",effected_edges_set)
+#    print("return effected_edges",effected_edges)
+#    print("return effected_edges_set",effected_edges_set)
 
     return effected_edges, effected_edges_set
 
-def embed(VN):
+def embed(vnr):
 
     config.current_wsn = copy.deepcopy(wsn_for_this_perm)
     config.reduced_adj = copy.deepcopy(adjacencies_for_this_perm)
     config.link_weights = copy.deepcopy(link_weights_for_this_perm)
     config.two_hops = copy.deepcopy(two_hops_list)
+    config.penalized_list = []
 
-    print("VN embedding: ", VN)
+
+#    str = input("embed(vnr):")
+#    if str != "":
+#        pass
+
+    print("VNR embedding: ", vnr)
     print("@links->config.link_weights", config.link_weights)
 
-    vwsn_nodes = VN[1]
-    link_reqiurement = VN[2]
+    vwsn_nodes = vnr[1]
+    link_reqiurement = vnr[2]
 
     frm = list(vwsn_nodes)[0]
     to = list(vwsn_nodes)[2]
@@ -1063,7 +966,12 @@ if __name__ == '__main__':
 #            show_penalized_links()
             perms = itool.permutations(vne.get_vnrs(),r=None)
             for i,per in enumerate(perms):
-                print(i," is ",per)
+                print("permutation",i," is ",per)
+#                str = input(":")
+#                if str != "":
+#                    pass
+
+
                 link_weights_for_this_perm = copy.deepcopy(link_weights)
                 adjacencies_for_this_perm = copy.deepcopy(adjacencies)
                 wsn_for_this_perm = copy.deepcopy(wsn)
