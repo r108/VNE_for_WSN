@@ -109,23 +109,31 @@ def get_shortest_path(graph, weight, frm, to):
 def make_undirected(cost):
     ucost = {}
     for k, w in cost.items():
+        print(k,w)
         ucost[k] = w
+        print("ucost[k]",ucost[k])
         ucost[(k[1],k[0])] = w
+        print("ucost[(k[1],k[0])] = w", ucost[(k[1],k[0])])
+
     return ucost
 
 
 def find_sp(graph, weight, frm, to):
     adj=graph
-    cost = make_undirected(weight)
+    cost = (weight)
+    print("£cost",cost)
 
     s = frm
     t = to
     #print("ADJ", adj," and \nWEIGHT ",weight, " for s-t ",s,t)
     if dijkstra(adj, cost, s, t) is not None:
         predecessors, min_cost = dijkstra(adj, cost, s, t)
+        print('min cost:', min_cost)
+        if min_cost > 10000000:
+            print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
+            return None
         c = t
         path = [c]
-        print ('min cost:', min_cost)
         while predecessors.get(c):
             path.insert(0, predecessors[c])
             c = predecessors[c]

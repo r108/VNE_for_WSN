@@ -6,10 +6,13 @@ class WSN():
     __link_weights = dict()
     __adj_list = dict()
     __two_hops_list = dict()
+    __exclusive_two_hops_list = dict()
 
     def __init__(self):
         self.init_wsn_substrate(self.get_adjacency_list())
         self.init_two_hop_neighborhood(self.get_adjacency_list())
+        self.init_exclusive_two_hop_neighborhood(self.get_adjacency_list())
+
 
     def get_wsn_substrate(self):
         return self.__WSN_Substrate
@@ -21,6 +24,16 @@ class WSN():
         return self.__two_hops_list
 
     def init_two_hop_neighborhood(self, adj_list):
+        for n in adj_list:
+            items = adj_list.get(n)
+            if_list = []
+            if_list.extend(items)
+            for i in items:
+                if_list.extend(adj_list.get(i))
+            self.__two_hops_list[n] = list(set([x for x in if_list if x != n]))
+        #print("Interferences ",self.__two_hops_list)
+
+    def init_exclusive_two_hop_neighborhood(self, adj_list):
         for n in adj_list:
             items = adj_list.get(n)
             if_list = []

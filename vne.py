@@ -11,4 +11,12 @@ M = None       #comitted mappings
 #a conflict graph representing interference is required
 CG = nx.Graph()
 
-#def embed_vnrs():
+def get_vnrs():
+    vnr1 = (1000, (56, {'load': 10}, 1, {'load': 10}), {'load': 10, 'plr': 40})
+    vnr2 = (1000, (52, {'load': 10}, 1, {'load': 10}), {'load': 10, 'plr': 40})
+    vnr3 = (1000, (14, {'load': 15}, 1, {'load': 15}), {'load': 15, 'plr': 40})
+    vnr4 = (1000, (51, {'load': 10}, 1, {'load': 10}), {'load': 10, 'plr': 40})
+    vnr5 = (1000, (37, {'load': 7}, 1, {'load': 7}), {'load': 7, 'plr': 40})
+    vnr6 = (1000, (6, {'load': 6}, 1, {'load': 6}), {'load': 6, 'plr': 40})
+
+    return [vnr1,vnr2,vnr3,vnr4,vnr5,vnr6]
