@@ -45,17 +45,17 @@ def update_node_attributes(Nodes, node, load):
 def update_link_attributes(u, v, plr, load):
 
     if plr is -1:
-        wsn_for_this_perm[u][v]['plr'] = wsn_for_this_perm[u][v]['plr']
+        config.wsn_for_this_perm[u][v]['plr'] = config.wsn_for_this_perm[u][v]['plr']
     else:
-        wsn_for_this_perm[u][v]['plr'] += plr
+        config.wsn_for_this_perm[u][v]['plr'] += plr
     if load is -1:
-        wsn_for_this_perm[u][v]['load'] = wsn_for_this_perm[u][v]['load']
+        config.wsn_for_this_perm[u][v]['load'] = config.wsn_for_this_perm[u][v]['load']
     else:
-        wsn_for_this_perm[u][v]['load'] += load
+        config.wsn_for_this_perm[u][v]['load'] += load
 
-    link_weight = LinkCost(wsn_for_this_perm[u][v]['plr'], wsn_for_this_perm[u][v]['load'])
-    wsn_for_this_perm[u][v]['weight'] = link_weight.get_weight(link_weight)
-    link_weights_for_this_perm[(u, v)] = link_weight.get_weight(link_weight)
+    link_weight = LinkCost(config.wsn_for_this_perm[u][v]['plr'], config.wsn_for_this_perm[u][v]['load'])
+    config.wsn_for_this_perm[u][v]['weight'] = link_weight.get_weight(link_weight)
+    config.link_weights_for_this_perm[(u, v)] = link_weight.get_weight(link_weight)
 
 
 def display_edge_attr(G):
@@ -180,8 +180,8 @@ def map_links(e_list, e_list2, required_load):
     for u,v in e_list2:
         update_link_attributes(int(u), int(v), -1, (e_list.count((u,v)) * required_load))
         #if (e_fr,e_to) not in config.allocated_links_weight:
-        config.allocated_links_weight.update({(u,v): wsn_for_this_perm[u][v]['weight']})
-        config.allocated_links_load.update({(u, v): wsn_for_this_perm[u][v]['load']})
+        config.allocated_links_weight.update({(u,v): config.wsn_for_this_perm[u][v]['weight']})
+        config.allocated_links_load.update({(u, v): config.wsn_for_this_perm[u][v]['load']})
 #        print(e_fr,e_to,"occur ", e_list.count((e_fr,e_to)),"times")
     print("config.allocated_links_weight.",config.allocated_links_weight)
     print("config.allocated_links_load.", config.allocated_links_load)
@@ -194,8 +194,8 @@ def map_links_cost(e_list, e_list2, required_load):
         link_embedding_cost +=required
         update_link_attributes(int(u), int(v), -1, required)
         #if (e_fr,e_to) not in config.allocated_links_weight:
-        config.allocated_links_weight.update({(u,v): wsn_for_this_perm[u][v]['weight']})
-        config.allocated_links_load.update({(u, v): wsn_for_this_perm[u][v]['load']})
+        config.allocated_links_weight.update({(u,v): config.wsn_for_this_perm[u][v]['weight']})
+        config.allocated_links_load.update({(u, v): config.wsn_for_this_perm[u][v]['load']})
 #        print(e_fr,e_to,"occur ", e_list.count((e_fr,e_to)),"times")
     print("config.allocated_links_weight.",config.allocated_links_weight)
     print("config.allocated_links_load.", config.allocated_links_load)
@@ -205,23 +205,23 @@ def map_links_cost(e_list, e_list2, required_load):
 def map_nodes(all_path_nodes, required_load):
     for idx,pn in enumerate(all_path_nodes):
         if idx == 0:
-            update_node_attributes(wsn_for_this_perm, pn, required_load)
+            update_node_attributes(config.wsn_for_this_perm, pn, required_load)
         elif idx == (len(all_path_nodes) - 1):
-            update_node_attributes(wsn_for_this_perm, pn, required_load)
+            update_node_attributes(config.wsn_for_this_perm, pn, required_load)
         else:
-            update_node_attributes(wsn_for_this_perm, pn, required_load)
+            update_node_attributes(config.wsn_for_this_perm, pn, required_load)
 
 def map_nodes_cost(all_path_nodes, required_load):
     node_embedding_cost = 0
     for idx, pn in enumerate(all_path_nodes):
         if idx == 0:
-            update_node_attributes(wsn_for_this_perm, pn, required_load)
+            update_node_attributes(config.wsn_for_this_perm, pn, required_load)
             node_embedding_cost += (required_load)
         elif idx == (len(all_path_nodes) - 1):
-            update_node_attributes(wsn_for_this_perm, pn, required_load)
+            update_node_attributes(config.wsn_for_this_perm, pn, required_load)
             node_embedding_cost += (required_load)
         else:
-            update_node_attributes(wsn_for_this_perm, pn, required_load)
+            update_node_attributes(config.wsn_for_this_perm, pn, required_load)
             node_embedding_cost += (required_load)
     return  node_embedding_cost
 
@@ -287,7 +287,7 @@ def check_link_constraints(e_list, e_list2, load, required_plr, shortest_path):
     required_load = []
     for u,v in e_list2:
         required_load = load * e_list.count((u,v))
-        if wsn_for_this_perm.edge[u][v]['load'] + required_load > 100:
+        if config.wsn_for_this_perm.edge[u][v]['load'] + required_load > 100:
  #           print("Link",u, v,"requires",wsn.edge[u][v]['load']," + ",required_load, "but have not got enough")
             return (u,v),VN_links
         else:
@@ -303,7 +303,7 @@ def check_node_constraints(nodes_in_path, required_load):
     #print("check_node_constraints")
     for idx,n in enumerate(nodes_in_path):
         VN_nodes.add_node(n, {'load': required_load})
-        if wsn_for_this_perm.node[n]['load'] + required_load > 100:
+        if config.wsn_for_this_perm.node[n]['load'] + required_load > 100:
             if idx == 0:
                     #print("Source node",n," has - ",wsn.node[n]['load'],"but require",+ required_load )
                     return n, VN_nodes
@@ -783,11 +783,16 @@ def recalculate_path_weights2(link_check,path_nodes,shortest_path):
 
 
 def embed_vn(VN):
-
-    config.current_wsn = copy.deepcopy(wsn)
-    config.reduced_adj = copy.deepcopy(wsn_substrate.get_adjacency_list())
-    config.link_weights = copy.deepcopy(link_weights)
+    config.current_wsn = copy.deepcopy(config.wsn_for_this_perm)
+    config.reduced_adj = copy.deepcopy(config.adjacencies_for_this_perm)
+    config.link_weights = copy.deepcopy(config.link_weights_for_this_perm)
     config.two_hops = copy.deepcopy(two_hops_list)
+    config.penalized_list = []
+
+#    config.current_wsn = copy.deepcopy(wsn)
+#    config.reduced_adj = copy.deepcopy(wsn_substrate.get_adjacency_list())
+#    config.link_weights = copy.deepcopy(link_weights)
+#    config.two_hops = copy.deepcopy(two_hops_list)
 
     print("VN embedding: ", VN)
     print("@links->config.link_weights",config.link_weights)
@@ -902,9 +907,9 @@ def get_conflicting_links(path_nodes):
 
 def embed(vnr):
 
-    config.current_wsn = copy.deepcopy(wsn_for_this_perm)
-    config.reduced_adj = copy.deepcopy(adjacencies_for_this_perm)
-    config.link_weights = copy.deepcopy(link_weights_for_this_perm)
+    config.current_wsn = copy.deepcopy(config.wsn_for_this_perm)
+    config.reduced_adj = copy.deepcopy(config.adjacencies_for_this_perm)
+    config.link_weights = copy.deepcopy(config.link_weights_for_this_perm)
     config.two_hops = copy.deepcopy(two_hops_list)
     config.penalized_list = []
 
@@ -1026,6 +1031,31 @@ def evaluate_perms():
     #print(combos)
     #print("emb", config.best_embeddings)
 
+def run_permutations():
+    perms = itool.permutations(vne.get_vnrs(), r=None)
+    for i, per in enumerate(perms):
+        print("permutation", i, " is ", per)
+        #                str = input(":")
+        #                if str != "":
+        #                    pass
+        config.link_weights_for_this_perm = copy.deepcopy(link_weights)
+        config.adjacencies_for_this_perm = copy.deepcopy(adjacencies)
+        config.wsn_for_this_perm = copy.deepcopy(wsn)
+        config.VWSNs = []
+        for vnr in per:
+            print(per.index(vnr), vnr)
+            embed(vnr)
+        vn_embeddings_for_this_perm = config.VWSNs
+        config.all_embeddings.append(vn_embeddings_for_this_perm)
+
+        #              for idx, vwsn in enumerate(vn_embeddings_for_this_perm):
+        #                  print("vwsn", idx, "path", vwsn[3])
+        #                  print("vwsn", idx, "nodes", vwsn[0].nodes(data=True))
+        #                  print("vwsn", idx, "links", vwsn[1].edges(data=True))
+        print()
+    # print("**config.all_embeddings length", len(config.all_embeddings))
+    evaluate_perms()
+
 
 if __name__ == '__main__':
     link_weights = wsn_substrate.get_link_weights()
@@ -1037,37 +1067,15 @@ if __name__ == '__main__':
     display_edge_attr(wsn)
     display_node_attr(wsn)
     display_data_structs()
+    config.link_weights_for_this_perm = copy.deepcopy(link_weights)
+    config.adjacencies_for_this_perm = copy.deepcopy(adjacencies)
+    config.wsn_for_this_perm = copy.deepcopy(wsn)
 
     while exit_flag is True:
         print("\n---->\n0 - Exit\n1 - Embed\n2 - Plot")
         user_input = input(': ')
         if user_input is '0':
-            perms = itool.permutations(vne.get_vnrs(),r=None)
-            for i,per in enumerate(perms):
-                print("permutation",i," is ",per)
-#                str = input(":")
-#                if str != "":
-#                    pass
-                link_weights_for_this_perm = copy.deepcopy(link_weights)
-                adjacencies_for_this_perm = copy.deepcopy(adjacencies)
-                wsn_for_this_perm = copy.deepcopy(wsn)
-                config.VWSNs = []
-                for vnr in per:
-                    print(per.index(vnr),vnr)
-                    embed(vnr)
-                vn_embeddings_for_this_perm = config.VWSNs
-                config.all_embeddings.append(vn_embeddings_for_this_perm)
-
-  #              for idx, vwsn in enumerate(vn_embeddings_for_this_perm):
-  #                  print("vwsn", idx, "path", vwsn[3])
-  #                  print("vwsn", idx, "nodes", vwsn[0].nodes(data=True))
-  #                  print("vwsn", idx, "links", vwsn[1].edges(data=True))
-                print()
-            #print("**config.all_embeddings length", len(config.all_embeddings))
-            evaluate_perms()
-
-
-
+            run_permutations()
         if user_input is '1':
             source = input(" source node: ")
             if source != "":

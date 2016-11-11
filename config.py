@@ -24,4 +24,7 @@ two_hops = dict()
 current_wsn = nx.DiGraph()
 wsn_for_this_perm = nx.DiGraph()
 
+adjacencies_for_this_perm = dict()
+link_weights_for_this_perm = dict()
+wsn_for_this_perm = nx.DiGraph()
 
