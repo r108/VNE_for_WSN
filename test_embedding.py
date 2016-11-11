@@ -1013,23 +1013,40 @@ def evaluate_perms():
         #print("config.successful_embeddings",config.successful_embeddings)
         combos = []
         config.best_embeddings = {}
+        optimal_perm = {}
+        max_accepted_vn = 0
         for key, val in config.successful_embeddings.items():
             source_nodes = []
             overall_cost = val['overall_cost']
+
             for k, v in val['embeddings'].items():
                 source_nodes.append(k)
-            # print(source_nodes)
-            if str(source_nodes) in config.best_embeddings:
-                cost = config.best_embeddings[str(source_nodes)]['overall_cost']
-                if cost > overall_cost:
-                    config.best_embeddings.update({str(source_nodes): {'overall_cost': overall_cost, 'permutation': key}})
-                    last_index = config.best_embeddings[str(source_nodes)]['permutation']
+
+            if len(config.best_embeddings) != 0:
+                if max_accepted_vn <= len(source_nodes):
+                    max_accepted_vn = len(source_nodes)
+                    print(source_nodes)
+                    if str(source_nodes) in config.best_embeddings:
+                        cost = config.best_embeddings[str(source_nodes)]['overall_cost']
+                        if cost > overall_cost:
+                            config.best_embeddings.update({str(source_nodes): {'overall_cost': overall_cost, 'permutation': key}})
+                            last_index = config.best_embeddings[str(source_nodes)]['permutation']
+                    else:
+                        current_key = list(config.best_embeddings.keys())
+                        print("current_key",current_key[0])
+                        cost = config.best_embeddings[current_key[0]]['overall_cost']
+                        if cost > overall_cost:
+                            config.best_embeddings.pop(current_key[0],0)
+                            config.best_embeddings.update(
+                                {str(source_nodes): {'overall_cost': overall_cost, 'permutation': key}})
+                            if source_nodes not in combos:
+                                combos.append(source_nodes)
             else:
                 config.best_embeddings.update({str(source_nodes): {'overall_cost': overall_cost, 'permutation': key}})
-            if source_nodes not in combos:
-                combos.append(source_nodes)
-    #print(combos)
-    #print("emb", config.best_embeddings)
+                max_accepted_vn = len(source_nodes)
+
+    print("combos",combos)
+    print("emb", config.best_embeddings)
 
 def run_permutations():
     perms = itool.permutations(vne.get_vnrs(), r=None)
