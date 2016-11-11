@@ -115,9 +115,11 @@ def generate_plot(G,shortest_path, path,plt,weight_flag):
 
     embeding_positions = list(map(int, path))
     colors = []
-    Gtx = nx.Graph()
+    G_source = nx.Graph()
+    G_sink = nx.Graph()
     if path:
-        Gtx.add_node(path[0], {'rank':1, 'load':1})
+        G_source.add_node(path[0], {'rank':1, 'load':1})
+        G_sink.add_node(path[len(path)-1], {'rank': 1, 'load': 1})
 
     for n in G.nodes():
         if n in embeding_positions:
@@ -147,7 +149,8 @@ def generate_plot(G,shortest_path, path,plt,weight_flag):
 
     nx.draw_networkx_nodes(G, pos, ax=plt, node_size=300, node_color=colors)
 
-    nx.draw_networkx_nodes(Gtx, pos, ax=plt, node_size=500, node_color='y')
+    nx.draw_networkx_nodes(G_source, pos, ax=plt, node_size=500, node_color='y')
+    nx.draw_networkx_nodes(G_sink, pos, ax=plt, node_size=600, node_color='b')
     # edges
     # nx.draw_networkx_edges(G,pos,edgelist=elarge,width=2)
 
@@ -184,6 +187,21 @@ def map_links(e_list, e_list2, required_load):
     print("config.allocated_links_load.", config.allocated_links_load)
     #print("get reduced adj",type(config.allocated_links_weight)
 
+def map_links_cost(e_list, e_list2, required_load):
+    link_embedding_cost = 0
+    for u,v in e_list2:
+        required = (e_list.count((u,v)) * required_load)
+        link_embedding_cost +=required
+        update_link_attributes(int(u), int(v), -1, required)
+        #if (e_fr,e_to) not in config.allocated_links_weight:
+        config.allocated_links_weight.update({(u,v): wsn_for_this_perm[u][v]['weight']})
+        config.allocated_links_load.update({(u, v): wsn_for_this_perm[u][v]['load']})
+#        print(e_fr,e_to,"occur ", e_list.count((e_fr,e_to)),"times")
+    print("config.allocated_links_weight.",config.allocated_links_weight)
+    print("config.allocated_links_load.", config.allocated_links_load)
+    #print("get reduced adj",type(config.allocated_links_weight)
+    return link_embedding_cost
+
 def map_nodes(all_path_nodes, required_load):
     for idx,pn in enumerate(all_path_nodes):
         if idx == 0:
@@ -193,7 +211,19 @@ def map_nodes(all_path_nodes, required_load):
         else:
             update_node_attributes(wsn_for_this_perm, pn, required_load)
 
-
+def map_nodes_cost(all_path_nodes, required_load):
+    node_embedding_cost = 0
+    for idx, pn in enumerate(all_path_nodes):
+        if idx == 0:
+            update_node_attributes(wsn_for_this_perm, pn, required_load)
+            node_embedding_cost += (required_load)
+        elif idx == (len(all_path_nodes) - 1):
+            update_node_attributes(wsn_for_this_perm, pn, required_load)
+            node_embedding_cost += (required_load)
+        else:
+            update_node_attributes(wsn_for_this_perm, pn, required_load)
+            node_embedding_cost += (required_load)
+    return  node_embedding_cost
 
 #def calculate_embedding_cost(VN_nodes, VN_links, required_load,e_list, e_list2, path_nodes, shortest_path):
 
@@ -231,11 +261,12 @@ def commit_vn(VN_nodes, VN_links, required_load,e_list, e_list2, path_nodes, sho
     plt.savefig("graph_" + str(config.plot_counter) + ".png")  # save as png
 
 def commit(VN_nodes, VN_links, required_load,e_list, e_list2, path_nodes, shortest_path):
-    map_nodes(VN_nodes.nodes(), required_load)
-    map_links(e_list, e_list2, required_load)
-    vn = (VN_nodes, VN_links, shortest_path, path_nodes)
+    n_cost = map_nodes_cost(VN_nodes.nodes(), required_load)
+    l_cost = map_links_cost(e_list, e_list2, required_load)
+    vn = (VN_nodes, VN_links, shortest_path, path_nodes, (n_cost+l_cost))
     config.VWSNs.append(vn)
     print(vn[3])
+    print(vn[4])
     print(config.VWSNs)
 
 #    str = input("commit: ")
@@ -948,6 +979,54 @@ def get_conflicting_links2(path_nodes):
 
     return effected_edges, effected_edges_set
 
+def plotit(VN_links, shortest_p, path_n, index):
+
+    fig = plt.figure(figsize=(30, 15), dpi=150)
+    #    if len(config.VWSNs) == 1:
+    config.VN_l1 = copy.deepcopy(VN_links)
+    config.sp1 = copy.deepcopy(path_nodes)
+    #   elif len(config.VWSNs) == 2:
+    plt1 = fig.add_subplot(1, 1, 1)
+    generate_plot(VN_links, shortest_p, path_n, plt1, False)
+    #plt1 = fig.add_subplot(1, 3, 2)
+    #generate_plot(wsn, shortest_path, path_nodes, plt1, False)
+    #plt1 = fig.add_subplot(1, 3, 3)
+    #generate_plot(wsn, shortest_path, [], plt1, True)
+    config.plot_counter += 1
+
+    plt.axis('on')
+    plt.savefig(str(index)+"graph_" + str(config.plot_counter) + ".png")  # save as png
+
+def evaluate_perms():
+    for i, embedings in enumerate(config.all_embeddings):
+        overall_cost = 0
+        config.current_mappings = {}
+        for idx, vn in enumerate(embedings):
+            config.current_mappings.update({vn[3][0]: vn[4]})
+            overall_cost += vn[4]
+        config.successful_embeddings.update({i: {'embeddings': config.current_mappings, 'overall_cost': overall_cost}})
+        #print("config.successful_embeddings",config.successful_embeddings)
+        combos = []
+        config.best_embeddings = {}
+        for key, val in config.successful_embeddings.items():
+            source_nodes = []
+            overall_cost = val['overall_cost']
+            for k, v in val['embeddings'].items():
+                source_nodes.append(k)
+            # print(source_nodes)
+            if str(source_nodes) in config.best_embeddings:
+                cost = config.best_embeddings[str(source_nodes)]['overall_cost']
+                if cost > overall_cost:
+                    config.best_embeddings.update({str(source_nodes): {'overall_cost': overall_cost, 'permutation': key}})
+                    last_index = config.best_embeddings[str(source_nodes)]['permutation']
+            else:
+                config.best_embeddings.update({str(source_nodes): {'overall_cost': overall_cost, 'permutation': key}})
+            if source_nodes not in combos:
+                combos.append(source_nodes)
+    #print(combos)
+    #print("emb", config.best_embeddings)
+
+
 if __name__ == '__main__':
     link_weights = wsn_substrate.get_link_weights()
     adjacencies = wsn_substrate.get_adjacency_list()
@@ -960,18 +1039,15 @@ if __name__ == '__main__':
     display_data_structs()
 
     while exit_flag is True:
-        print("\n---->\n0 - Exit\n1 - Embed\n2 - Draw")
+        print("\n---->\n0 - Exit\n1 - Embed\n2 - Plot")
         user_input = input(': ')
         if user_input is '0':
-#            show_penalized_links()
             perms = itool.permutations(vne.get_vnrs(),r=None)
             for i,per in enumerate(perms):
                 print("permutation",i," is ",per)
 #                str = input(":")
 #                if str != "":
 #                    pass
-
-
                 link_weights_for_this_perm = copy.deepcopy(link_weights)
                 adjacencies_for_this_perm = copy.deepcopy(adjacencies)
                 wsn_for_this_perm = copy.deepcopy(wsn)
@@ -987,6 +1063,8 @@ if __name__ == '__main__':
   #                  print("vwsn", idx, "nodes", vwsn[0].nodes(data=True))
   #                  print("vwsn", idx, "links", vwsn[1].edges(data=True))
                 print()
+            #print("**config.all_embeddings length", len(config.all_embeddings))
+            evaluate_perms()
 
 
 
@@ -1015,17 +1093,26 @@ if __name__ == '__main__':
             #display_edge_attr(wsn)
             #display_node_attr(wsn)
 
-            for i,embedings in enumerate(config.all_embeddings):
-                print("Embeddings for permutation ",i)
-                for idx, vwsn in enumerate(embedings):
-                    print("vwsn", idx, "path", vwsn[3])
-                    print("vwsn", idx, "nodes", vwsn[0].nodes(data=True))
-                    print("vwsn", idx, "links", vwsn[1].edges(data=True))
-                    print("VWSN ", idx, "allocations:")
+
+                    #print("vwsn", idx, "path", vwsn[3],"cost",vwsn[4])
+                    #print("vwsn", idx, "nodes", vwsn[0].nodes(data=True))
+                    #print("vwsn", idx, "links", vwsn[1].edges(data=True))
+        #            print("VWSN ", idx, "allocations:")
         #            display_vn_edge_allocation(vwsn[1])
         #            display_vn_node_allocation(vwsn[0])
         #            show_graph_plot(vwsn[1], vwsn[2], vwsn[3])
                     #print("wsn.get_wsn_links()", vwsn[1].edges(data=True), "\n shortest_path", vwsn[2],"\n path_nodes", vwsn[3])
-                source = input(" cont: ")
-                if source != "":
-                    continue
+
+
+            for k,v in config.best_embeddings.items():
+                index = v['permutation']
+                print("index",index)
+                print("config.all_embeddings[index]",config.all_embeddings[index])
+
+                for perm in config.all_embeddings[index]:
+                    print("perm",perm)
+                    VN_links = perm[1]
+                    shortest_p = perm[2]
+                    path_n = perm[3]
+                    plotit(VN_links, shortest_p, path_n, index)
+

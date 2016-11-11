@@ -1,8 +1,6 @@
 import networkx as nx
 from combinationIterator import CombinationIterator as ci
 VN_l1 = nx.DiGraph()
-
-sp1 = []
 counter_value = 0
 plot_counter = 0
 avoid = []
@@ -13,8 +11,9 @@ feasible = False
 has_embedding = False
 VWSNs = []
 all_embeddings = []
-
-
+successful_embeddings = {}
+current_mappings = {}
+best_embeddings = {}
 vnr_list = []
 allocated_links_load = dict()
 allocated_links_weight = dict()
