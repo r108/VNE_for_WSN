@@ -18,5 +18,7 @@ def get_vnrs():
     vnr4 = (1000, (51, {'load': 10}, 1, {'load': 10}), {'load': 10, 'plr': 40})
     vnr5 = (1000, (37, {'load': 7}, 1, {'load': 7}), {'load': 7, 'plr': 40})
     vnr6 = (1000, (6, {'load': 6}, 1, {'load': 6}), {'load': 6, 'plr': 40})
+    vnr7 = (1000, (19, {'load': 11}, 1, {'load': 11}), {'load': 11, 'plr': 40})
 
-    return [vnr1,vnr2,vnr3,vnr4,vnr5,vnr6]
+    return [vnr1,vnr2,vnr3,vnr4,vnr5,vnr6,vnr7]
+    #return [vnr1,vnr2,vnr3,vnr4,vnr5]
