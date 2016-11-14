@@ -8,7 +8,7 @@ class LinkCost():
         self.__link_weight = 0  # composite value calculated from the below indicators
         self.__plr = plr
         self.__load = load
-        self.__attr_weights = [4, 3, 2, 1]
+        self.__attr_weights = [40, 3, 2, 1]
         self.__RBW = 100000
         self.__bandwidth = 128
         self.__delay = 50
