@@ -39,6 +39,7 @@ def update_node_attribs(nodes, node, load):
             #d['rank'] = len(adj[n])
 
 def update_link_attribs(wsn,u, v, plr, load):
+    current_link_weight = LinkCost(wsn[u][v]['plr'], wsn[u][v]['load'])
     if plr is -1:
         wsn[u][v]['plr'] = wsn[u][v]['plr']
     else:
@@ -49,6 +50,7 @@ def update_link_attribs(wsn,u, v, plr, load):
         wsn[u][v]['load'] += load
     link_weight = LinkCost(wsn[u][v]['plr'], wsn[u][v]['load'])
     wsn[u][v]['weight'] = link_weight.get_weight(link_weight)
+    return current_link_weight.get_weight(current_link_weight)
 
 ######################################################################################################
 
@@ -74,13 +76,14 @@ def on_line_vn_request():
 
 def map_links_cost(e_list, e_set, required_load):
     link_embedding_cost = 0
+    current_weight = 0
     for u,v in e_set:
         required = (e_list.count((u,v)) * required_load)
-        link_embedding_cost +=required
         if config.online_flag:
-            update_link_attribs(config.committed_wsn, int(u), int(v), -1, required)
+            current_weight = update_link_attribs(config.committed_wsn, int(u), int(v), -1, required)
         else:
-            update_link_attribs(config.wsn_for_this_perm, int(u), int(v), -1, required)
+            current_weight = update_link_attribs(config.wsn_for_this_perm, int(u), int(v), -1, required)
+        link_embedding_cost +=(required * current_weight)
     return link_embedding_cost
 
 def map_nodes_cost(all_path_nodes, required_load):
@@ -96,7 +99,8 @@ def map_nodes_cost(all_path_nodes, required_load):
 def commit(VN_nodes, VN_links, required_load,e_list, e_list2, path_nodes, shortest_path):
     n_cost = map_nodes_cost(VN_nodes.nodes(), required_load)
     l_cost = map_links_cost(e_list, e_list2, required_load)
-    vn = (VN_nodes, VN_links, shortest_path, path_nodes, (n_cost+l_cost))
+    cost = (n_cost+l_cost)
+    vn = (VN_nodes, VN_links, shortest_path, path_nodes, cost, path_nodes[0])
     config.VWSNs.append(vn)
     if config.online_flag:
         vis.display_edge_attr(config.committed_wsn)
@@ -104,8 +108,10 @@ def commit(VN_nodes, VN_links, required_load,e_list, e_list2, path_nodes, shorte
         vis.display_vn_node_allocation(VN_nodes)
         vis.display_vn_edge_allocation(VN_links)
         vis.plotit(VN_links, shortest_path, path_nodes, 0)
-    config.current_emb_costs.update({vn[3][0]: vn[4]})
-    config.overall_cost += vn[4]
+        config.active_vns.append(vn)
+
+    config.current_emb_costs.update({path_nodes[0]: cost})
+    config.overall_cost += cost
 
 #    print(vn[3])
 #    print(vn[4])
@@ -299,21 +305,24 @@ def evaluate_perms(current_perm):
             config.max_accepted_vnrs = len(source_nodes)
             if str(source_nodes) in config.best_embeddings:
                 cost = config.best_embeddings[str(source_nodes)]['overall_cost']
-                if cost > overall_cost:
+                if cost >= overall_cost:
                     config.best_embeddings.update({str(source_nodes): {'overall_cost': overall_cost, 'permutation': keys[0]}})
                     config.committed_wsn = copy.deepcopy(config.wsn_for_this_perm)
+                    config.active_vns = copy.deepcopy(config.VWSNs)
             else:
                 current_key = list(config.best_embeddings.keys())
                 cost = config.best_embeddings[current_key[0]]['overall_cost']
-                if cost > overall_cost:
+                if cost >= overall_cost:
                     config.best_embeddings.pop(current_key[0],0)
                     config.best_embeddings.update(
                         {str(source_nodes): {'overall_cost': overall_cost, 'permutation': keys[0]}})
                     config.committed_wsn = copy.deepcopy(config.wsn_for_this_perm)
+                    config.active_vns = copy.deepcopy(config.VWSNs)
     else:
         config.best_embeddings.update({str(source_nodes): {'overall_cost': overall_cost, 'permutation': keys[0]}})
         config.max_accepted_vnrs = len(source_nodes)
         config.committed_wsn = copy.deepcopy(config.wsn_for_this_perm)
+        config.active_vns = copy.deepcopy(config.VWSNs)
 
 def run_permutations():
     config.online_flag = False
@@ -336,6 +345,7 @@ def run_permutations():
         config.embedding_costs.update(current_perm)
         config.all_embeddings.append(config.VWSNs)
         evaluate_perms(current_perm)
+
     vis.display_edge_attr(config.committed_wsn)
     vis.display_node_attr(config.committed_wsn)
     display_data_structs()
@@ -539,6 +549,12 @@ def recalculate_path_weights(frm,to,path_n,shortest_path):
                 config.penalized_list.append((path_nodes[highest-1], path_nodes[highest]))
 '''
 
+def remove_vn(vn):
+    for u,v in vn[1].edges():
+        update_link_attribs(config.committed_wsn, int(u), int(v), -1, -(vn[1][u][v]['load']))
+    for n in vn[0].nodes():
+        update_node_attribs(config.committed_wsn,n,-(vn[0].node[n]['load']))
+    return True
 
 if __name__ == '__main__':
     link_weights = wsn_substrate.get_link_weights()
@@ -555,7 +571,7 @@ if __name__ == '__main__':
     #config.adjacencies_for_this_perm = copy.deepcopy(adjacencies)
     #config.wsn_for_this_perm = copy.deepcopy(wsn)
     while exit_flag is True:
-        print("\n---->\n0 - Run permutations\n1 - Embed\n2 - Plot\n3 - Show")
+        print("\n---->\n0 - Run permutations\n1 - Embed\n2 - Plot\n3 - Show wsn resources\n4 - Show active VNs")
         user_input = input(': ')
         if user_input is '0':
             run_permutations()
@@ -569,3 +585,24 @@ if __name__ == '__main__':
             display_data_structs()
             print(config.committed_wsn.edge)
             print(config.current_wsn.edge)
+        elif user_input is '4':
+            active_vns = {}
+            for i,vn in enumerate(config.active_vns):
+                 active_vns.update({vn[3][0]:i})
+            print("Active VNs:", list(active_vns))
+
+            choice = input('Enter VN# to remove: ')
+            removed = False
+            if choice !='':
+                to_remove = active_vns.get(int(choice))
+                if to_remove is not None:
+                    vn = config.active_vns[to_remove]
+                    removed = remove_vn(vn)
+                else:
+                    print("vn_to_remove", to_remove)
+
+                if removed:
+                    config.active_vns.pop(to_remove)
+                    print("VN",to_remove,"was removed." )
+            else:
+                pass

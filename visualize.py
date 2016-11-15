@@ -120,14 +120,18 @@ def draw_graph():
     for k, v in config.best_embeddings.items():
         index = v['permutation']
         print("index", index)
-        print("config.all_embeddings[index]", config.all_embeddings[index])
-
-        for perm in config.all_embeddings[index]:
-            print("perm", perm)
-            VN_links = perm[1]
-            shortest_p = perm[2]
-            path_n = perm[3]
+        for vn in config.active_vns:
+            VN_links = vn[1]
+            shortest_p = vn[2]
+            path_n = vn[3]
             plotit(VN_links, shortest_p, path_n, index)
+
+#        for perm in config.all_embeddings[index]:
+#            print("perm", perm)
+#            VN_links = perm[1]
+#            shortest_p = perm[2]
+#            path_n = perm[3]
+#            plotit(VN_links, shortest_p, path_n, index)
 
 def plotit(VN_links, shortest_path, path_nodes, index):
     fig = plt.figure(figsize=(30, 15), dpi=150)
