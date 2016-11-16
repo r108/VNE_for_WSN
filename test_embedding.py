@@ -420,8 +420,19 @@ def recalculate_path_weights(frm,to,path_n,shortest_path):
             for n in config.reduced_adj[frm - 1]:
                 config.current_wsn[frm][n]['weight'] = 10000000  # make path cost unfeasible
             return False
-
-        if u == frm:
+        ##changed to elif
+        elif (v, u) in shortest_path:
+            print(v, u, "v-u link in path does not have enough resource!")
+            print(config.current_wsn[v][u]['weight'])
+            config.current_wsn[v][u]['weight'] = 10000000
+            return False
+        elif (u, v) in shortest_path:
+            print(u, v, "u-v link in path does not have enough resource!")
+            config.current_wsn[u][v]['weight'] = 10000000
+            #           config.current_wsn[shortest_path[shortest_path.index(u)-1]][u]['weight'] = 10000000  #about this I'm not sure!!
+            return False
+        ##changed to elif
+        elif u == frm:
             if (len(path_nodes) <= 3) or (v != path_nodes[1]):
                 print("Source node u", u, "does not have enough resource.\nEMBEDDING HAS FAILED!")
                 for n in config.reduced_adj[frm-1]:
@@ -434,6 +445,9 @@ def recalculate_path_weights(frm,to,path_n,shortest_path):
                         return False
             else:
                 print("Source node u", u, "does not have enough resource. This case has not been handled yet!\nEMBEDDING HAS FAILED!")
+                user_input = input(': ')
+                if user_input is '':
+                    return False
             return False
         elif v == frm:
             if (len(path_nodes) <= 3) or (u != path_nodes[1]):
@@ -448,6 +462,9 @@ def recalculate_path_weights(frm,to,path_n,shortest_path):
                         return False
             else:
                 print("Source node v", v, "does not have enough resource. This case has not been handled yet!\nEMBEDDING HAS FAILED!")
+                user_input = input(': ')
+                if user_input is '':
+                    return False
             return False
         elif u == to:
             print("Sink node u", u, "does not have enough resource.\nEMBEDDING HAS FAILED!")
@@ -472,26 +489,10 @@ def recalculate_path_weights(frm,to,path_n,shortest_path):
                 if user_input is '':
                     return False
             return False
-        else:
-            print("Unkown case 1")
-            user_input = input(': ')
-            if user_input is '':
-                return False
-
-
-        if (v, u) in shortest_path:
-           print(v,u,"v-u link in path does not have enough resource!")
-           print(config.current_wsn[v][u]['weight'])
-           config.current_wsn[v][u]['weight'] = 10000000
-           return False
-        elif (u, v) in shortest_path:
-           print(u,v,"u-v link in path does not have enough resource!")
-           config.current_wsn[u][v]['weight'] = 10000000
-#           config.current_wsn[shortest_path[shortest_path.index(u)-1]][u]['weight'] = 10000000  #about this I'm not sure!!
-           return False
 
         ##double check this section!
-        if u in path_nodes:
+        ##changed from if to elif
+        elif u in path_nodes:
             print(u, "u in path does not have enough resource!")
             config.current_wsn[path_nodes[path_nodes.index(u) - 1]][u]['weight'] = 10000000
             return False
@@ -499,9 +500,7 @@ def recalculate_path_weights(frm,to,path_n,shortest_path):
             print(v, "v in path does not have enough resource!")
             config.current_wsn[path_nodes[path_nodes.index(v) - 1]][v]['weight'] = 10000000
             return False
-
         else:
-
             for n in path_n:
                 nbr = config.reduced_adj[n-1]
                 #print("n",n)
@@ -523,6 +522,12 @@ def recalculate_path_weights(frm,to,path_n,shortest_path):
                         config.current_wsn[frm][path_nodes[1]]['weight'] = 10000000
                     return False
                     #    show_penalized_links()
+                else:
+                    print("Unkown case x")
+                    user_input = input(': ')
+                    if user_input is '':
+                        return False
+
     return True
 
 '''
