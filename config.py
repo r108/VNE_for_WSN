@@ -13,6 +13,8 @@ failed_links_list = []
 feasible = False
 has_embedding = False
 
+recursion_counter = 0
+
 
 VWSNs = []  #feasible embeddings for each/current permutation
 all_embeddings = [] #list of embeddings for all permutations

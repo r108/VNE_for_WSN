@@ -173,6 +173,11 @@ def get_shortest_path(graph, frm, to):
     return s_path, path
 
 def verify_feasibility(link_reqiurement, frm, to, node_requirement):
+    config.recursion_counter += 1
+    if config.recursion_counter > 100:
+        user_input = input('verify: ')
+        if user_input is '':
+            return True
     config.total_operations +=  1
     config.counter_value = config.counter_value+1
     print("verify feasibility----------------------",config.counter_value,"counter ")
@@ -212,14 +217,16 @@ def verify_feasibility(link_reqiurement, frm, to, node_requirement):
         if link_check not in config.failed_links_list:
             config.failed_links_list.append(link_check)
         if recalculate_path_weights(frm, to, path_nodes, shortest_path) == True:
-            print("Something went wrong!")
+            print("Something went wrong!", config.recursion_counter)
             return False
     check_again(link_reqiurement, frm, to, node_requirement)
         #verify_feasibility(link_reqiurement, frm, to, node_requirement)
 
 def check_again(link_reqiurement, frm, to, node_requirement):
     if not config.feasible:
-        verify_feasibility(link_reqiurement, frm, to, node_requirement)
+        is_failed = verify_feasibility(link_reqiurement, frm, to, node_requirement)
+        if is_failed:
+            print("Verify failed!!! ")
 
 def get_conflicting_links(path_nodes):
     tx_nodes = copy.deepcopy(path_nodes)
@@ -266,13 +273,16 @@ def get_conflicting_links(path_nodes):
 
 def embed(vnr):
     print("BEGIN VNR EMBEDDING", vnr)
+    del config.two_hops
     config.two_hops = copy.deepcopy(two_hops_list)
+    del config.penalized_list
     config.penalized_list = []
     vwsn_nodes = vnr[1]
     link_reqiurement = vnr[2]
     frm = list(vwsn_nodes)[0]
     to = list(vwsn_nodes)[2]
     node_requirement = vwsn_nodes[1]['load']
+    del config.avoid
     config.avoid = []
     config.feasible = False
     if config.online_flag:
@@ -284,7 +294,9 @@ def embed(vnr):
         config.reduced_adj = copy.deepcopy(config.committed_wsn.adjacency_list())
         node_check, VN_nodes = check_node_constraints([frm, to], node_requirement, config.committed_wsn)
     else:
+        del config.current_wsn
         config.current_wsn = copy.deepcopy(config.wsn_for_this_perm)
+        del config.reduced_adj
         config.reduced_adj = copy.deepcopy(config.adjacencies_for_this_perm)
         node_check, VN_nodes = check_node_constraints([frm, to], node_requirement, config.wsn_for_this_perm)
 
@@ -307,7 +319,9 @@ def evaluate_perms(current_perm):
                 cost = config.best_embeddings[str(source_nodes)]['overall_cost']
                 if cost >= overall_cost:
                     config.best_embeddings.update({str(source_nodes): {'overall_cost': overall_cost, 'permutation': keys[0]}})
+                    del config.committed_wsn
                     config.committed_wsn = copy.deepcopy(config.wsn_for_this_perm)
+                    del config.active_vns
                     config.active_vns = copy.deepcopy(config.VWSNs)
             else:
                 current_key = list(config.best_embeddings.keys())
@@ -316,12 +330,16 @@ def evaluate_perms(current_perm):
                     config.best_embeddings.pop(current_key[0],0)
                     config.best_embeddings.update(
                         {str(source_nodes): {'overall_cost': overall_cost, 'permutation': keys[0]}})
+                    del config.committed_wsn
                     config.committed_wsn = copy.deepcopy(config.wsn_for_this_perm)
+                    del config.active_vns
                     config.active_vns = copy.deepcopy(config.VWSNs)
     else:
         config.best_embeddings.update({str(source_nodes): {'overall_cost': overall_cost, 'permutation': keys[0]}})
         config.max_accepted_vnrs = len(source_nodes)
+        del config.committed_wsn
         config.committed_wsn = copy.deepcopy(config.wsn_for_this_perm)
+        del config.active_vns
         config.active_vns = copy.deepcopy(config.VWSNs)
 
 def run_permutations():
@@ -331,27 +349,37 @@ def run_permutations():
     config.best_embeddings = {}
     config.max_accepted_vnrs = 0
     for i, per in enumerate(perms):
+        print("config.recursion_counter",config.recursion_counter)
+        config.recursion_counter = 0
         print("Permutation ",i)
+        if i == 29760 or i == 29761:
+            user_input = input('perm 29760-1: ')
+            if user_input is '':
+                return True
         #config.link_weights_for_this_perm = copy.deepcopy(link_weights)
+        del config.adjacencies_for_this_perm
         config.adjacencies_for_this_perm = copy.deepcopy(adjacencies)
+        del config.wsn_for_this_perm
         config.wsn_for_this_perm = copy.deepcopy(config.wsn)
+        del config.VWSNs
         config.VWSNs = []
         config.current_emb_costs = {}
+        del config.overall_cost
         config.overall_cost = 0
         for vnr in per:
             config.total_operations +=  1
             embed(vnr)
         current_perm = {i: {'embeddings': config.current_emb_costs, 'overall_cost': config.overall_cost}}
-        config.embedding_costs.update(current_perm)
-        config.all_embeddings.append(config.VWSNs)
+#        config.embedding_costs.update(current_perm)
+#        config.all_embeddings.append(config.VWSNs)
         evaluate_perms(current_perm)
 
     vis.display_edge_attr(config.committed_wsn)
     vis.display_node_attr(config.committed_wsn)
     display_data_structs()
     print()
-    print("All feasible embddings:", config.all_embeddings)
-    print("All embedding costs:", config.embedding_costs)
+#    print("All feasible embddings:", config.all_embeddings)
+#    print("All embedding costs:", config.embedding_costs)
     print("Optimal solution is:", config.best_embeddings)
     end = time.time()
     print(end - config.start)
@@ -364,6 +392,10 @@ def show_penalized_links():
         print(u,v,config.current_wsn[u][v]['weight'])
 
 def recalculate_path_weights(frm,to,path_n,shortest_path):
+    if config.recursion_counter > 100:
+        user_input = input('recalculate: ')
+        if user_input is '':
+            return True
     for (u, v) in config.avoid:
         print("recalculate",u,v)
         path_nodes = copy.deepcopy(path_n)
@@ -395,7 +427,13 @@ def recalculate_path_weights(frm,to,path_n,shortest_path):
                 for n in config.reduced_adj[frm-1]:
                     config.current_wsn[frm][n]['weight'] = 10000000 #make path cost unfeasible
             elif v == path_nodes[1]:
-                print("Source node u", u, "does not have enough resource.\nEMBEDDING HAS FAILED!")
+                for n in path_n:
+                    if n in config.reduced_adj[frm-1]:
+                        config.current_wsn[path_n[path_n.index(n) + 1]][n]['weight'] = 10000000
+                        print("Source node u", u, "does not have enough resource.\nEMBEDDING HAS FAILED!")
+                        return False
+            else:
+                print("Source node u", u, "does not have enough resource. This case has not been handled yet!\nEMBEDDING HAS FAILED!")
             return False
         elif v == frm:
             if (len(path_nodes) <= 3) or (u != path_nodes[1]):
@@ -403,7 +441,13 @@ def recalculate_path_weights(frm,to,path_n,shortest_path):
                 for n in config.reduced_adj[frm-1]:
                     config.current_wsn[frm][n]['weight'] = 10000000 #make path cost unfeasible
             elif u == path_nodes[1]:
-                print("Source node v", v, "does not have enough resource.\nEMBEDDING HAS FAILED!")
+                for n in path_n:
+                    if n in config.reduced_adj[frm-1]:
+                        config.current_wsn[path_n[path_n.index(n) + 1]][n]['weight'] = 10000000
+                        print("Source node v", v, "does not have enough resource.\nEMBEDDING HAS FAILED!")
+                        return False
+            else:
+                print("Source node v", v, "does not have enough resource. This case has not been handled yet!\nEMBEDDING HAS FAILED!")
             return False
         elif u == to:
             print("Sink node u", u, "does not have enough resource.\nEMBEDDING HAS FAILED!")
@@ -422,7 +466,18 @@ def recalculate_path_weights(frm,to,path_n,shortest_path):
                 print(u, v, "u-v link is in right angle to path! Penalize link [path_n[2]][path_n[1]]!")
                 config.current_wsn[path_n[2]][path_n[1]]['weight'] = 10000000 #make path cost unfeasible
                 config.current_wsn[path_n[3]][path_n[2]]['weight'] = 10000000 #make path cost unfeasible##############################
+            else:
+                print(v," is source. This case has not been handled yet!")
+                user_input = input(': ')
+                if user_input is '':
+                    return False
             return False
+        else:
+            print("Unkown case 1")
+            user_input = input(': ')
+            if user_input is '':
+                return False
+
 
         if (v, u) in shortest_path:
            print(v,u,"v-u link in path does not have enough resource!")
@@ -572,7 +627,7 @@ if __name__ == '__main__':
     #config.wsn_for_this_perm = copy.deepcopy(wsn)
     while exit_flag is True:
         print("\n---->\n0 - Run permutations\n1 - Embed\n2 - Plot\n3 - Show wsn resources\n4 - Show active VNs")
-        user_input = input(': ')
+        user_input = input(':')
         if user_input is '0':
             run_permutations()
         elif user_input is '1':

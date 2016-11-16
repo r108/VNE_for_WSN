@@ -24,5 +24,5 @@ def get_vnrs():
 
 
 
-    #return [vnr1,vnr2,vnr3,vnr4,vnr5,vnr6,vnr7,vnr8]
-    return [vnr1,vnr2,vnr3,vnr4,vnr5]
+    return [vnr1,vnr2,vnr3,vnr4,vnr5,vnr6,vnr7,vnr8]
+    #return [vnr1,vnr2,vnr3,vnr4,vnr5,vnr6]
