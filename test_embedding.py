@@ -355,7 +355,7 @@ def run_permutations():
         if i == 29760 or i == 29761:
             user_input = input('perm 29760-1: ')
             if user_input is '':
-                return True
+                pass
         #config.link_weights_for_this_perm = copy.deepcopy(link_weights)
         del config.adjacencies_for_this_perm
         config.adjacencies_for_this_perm = copy.deepcopy(adjacencies)
@@ -526,7 +526,7 @@ def recalculate_path_weights(frm,to,path_n,shortest_path):
                     print("Unkown case x")
                     user_input = input(': ')
                     if user_input is '':
-                        return False
+                        return True
 
     return True
 
