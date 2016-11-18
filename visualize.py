@@ -66,6 +66,8 @@ def display_vn_edge_allocation(G):
 
 def generate_plot(G,shortest_path, path,plt,weight_flag):
 
+    print(G.nodes(data=True))
+    print(G.edges(data=True))
     embeding_positions = list(map(int, path))
     colors = []
     G_source = nx.Graph()
@@ -81,6 +83,7 @@ def generate_plot(G,shortest_path, path,plt,weight_flag):
             colors.append('g')
 
     positions = WSN.get_nodes_position(WSN)
+    print(positions)
     fixed_positions = dict()
     for n in G.nodes(data=False):
         fixed_positions.update({n: positions[n]})
@@ -101,7 +104,7 @@ def generate_plot(G,shortest_path, path,plt,weight_flag):
     # nodes
 
     nx.draw_networkx_nodes(G, pos, ax=plt, node_size=300, node_color=colors)
-
+    print("G_source.nodes",G_source.nodes(data=True))
     nx.draw_networkx_nodes(G_source, pos, ax=plt, node_size=500, node_color='y')
     nx.draw_networkx_nodes(G_sink, pos, ax=plt, node_size=600, node_color='b')
     # edges
@@ -132,6 +135,7 @@ def draw_graph():
 #            shortest_p = perm[2]
 #            path_n = perm[3]
 #            plotit(VN_links, shortest_p, path_n, index)
+
 
 def plotit(VN_links, shortest_path, path_nodes, index):
     fig = plt.figure(figsize=(30, 15), dpi=150)

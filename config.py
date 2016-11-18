@@ -2,7 +2,7 @@ import networkx as nx
 from combinationIterator import CombinationIterator as ci
 start = 0.0
 online_flag = False
-VN_l1 = nx.DiGraph()
+#VN_l1 = nx.DiGraph()
 counter_value = 0
 total_operations = 0
 plot_counter = 0
@@ -15,6 +15,7 @@ has_embedding = False
 
 recursion_counter = 0
 
+perms_list = []
 
 VWSNs = []  #feasible embeddings for each/current permutation
 all_embeddings = [] #list of embeddings for all permutations
@@ -33,16 +34,16 @@ link_weights = dict()
 two_hops = dict()
 
 
-current_wsn = nx.DiGraph()
-current_wsn_removed_edges = nx.DiGraph()
-wsn_for_this_perm = nx.DiGraph()
-wsn_for_this_vnr = nx.DiGraph()
+current_wsn = {}#nx.DiGraph()
+current_wsn_removed_edges = {}#nx.DiGraph()
+wsn_for_this_perm = {}#nx.DiGraph()
+wsn_for_this_vnr = {}#nx.DiGraph()
 
 adjacencies_for_this_perm = dict()
 link_weights_for_this_perm = dict()
-wsn_for_this_perm = nx.DiGraph()
-committed_wsn = nx.DiGraph()
-wsn = nx.DiGraph()
+wsn_for_this_perm = {}#nx.DiGraph()
+committed_wsn = {}#nx.DiGraph()
+wsn = {}#nx.DiGraph()
 
 failed_sources = []
 perm_indx = 0
