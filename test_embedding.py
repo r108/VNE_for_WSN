@@ -209,10 +209,10 @@ def verify_feasibility(link_reqiurement, frm, to, node_requirement):
         #print("node ", node_check, "does not have enough resource\nEMBEDDING FAILED!")
         return False
 
-    if(hops > 2):
-        if (link_reqiurement['load']*2) > (100 - max_load):
-            #print("Failed!",frm,to," cannot support request")
-            return False
+#    if(hops > 2):
+#        if (link_reqiurement['load']*2) > (100 - max_load):
+ #           #print("Failed!",frm,to," cannot support request")
+#            return False
 
     #print("verify feasibility----------------------",config.counter_value,"counter ")
     shortest_path, path_nodes = get_shortest_path(config.current_wsn, frm, to)
@@ -372,28 +372,25 @@ def evaluate_perms(current_perm):
     for k, v in current_perm[keys[0]]['embeddings'].items():
         source_nodes.append(k)
     if len(config.best_embeddings) != 0:
-
-        if config.max_accepted_vnrs <= len(source_nodes):
+        if config.max_accepted_vnrs < len(source_nodes):
             config.max_accepted_vnrs = len(source_nodes)
-            if str(source_nodes) in config.best_embeddings:
-                cost = config.best_embeddings[str(source_nodes)]['overall_cost']
-                if cost >= overall_cost:
-                    config.best_embeddings.update({str(source_nodes): {'overall_cost': overall_cost, 'permutation': keys[0]}})
-                    del config.committed_wsn
-                    config.committed_wsn = copy.deepcopy(config.wsn_for_this_perm)
-                    del config.active_vns
-                    config.active_vns = copy.deepcopy(config.VWSNs)
-            else:
-                current_key = list(config.best_embeddings.keys())
-                cost = config.best_embeddings[current_key[0]]['overall_cost']
-                if cost >= overall_cost:
-                    config.best_embeddings.pop(current_key[0],0)
-                    config.best_embeddings.update(
-                        {str(source_nodes): {'overall_cost': overall_cost, 'permutation': keys[0]}})
-                    del config.committed_wsn
-                    config.committed_wsn = copy.deepcopy(config.wsn_for_this_perm)
-                    del config.active_vns
-                    config.active_vns = copy.deepcopy(config.VWSNs)
+            current_key = list(config.best_embeddings.keys())
+            config.best_embeddings.pop(current_key[0], 0)
+            config.best_embeddings.update({str(source_nodes): {'overall_cost': overall_cost, 'permutation': keys[0]}})
+            del config.committed_wsn
+            config.committed_wsn = copy.deepcopy(config.wsn_for_this_perm)
+            del config.active_vns
+            config.active_vns = copy.deepcopy(config.VWSNs)
+        elif config.max_accepted_vnrs == len(source_nodes):
+            current_key = list(config.best_embeddings.keys())
+            best_cost = config.best_embeddings[current_key[0]]['overall_cost']
+            if best_cost > overall_cost:
+                config.best_embeddings.pop(current_key[0],0)
+                config.best_embeddings.update({str(source_nodes): {'overall_cost': overall_cost, 'permutation': keys[0]}})
+                del config.committed_wsn
+                config.committed_wsn = copy.deepcopy(config.wsn_for_this_perm)
+                del config.active_vns
+                config.active_vns = copy.deepcopy(config.VWSNs)
     else:
         config.best_embeddings.update({str(source_nodes): {'overall_cost': overall_cost, 'permutation': keys[0]}})
         config.max_accepted_vnrs = len(source_nodes)
@@ -408,7 +405,7 @@ def run_permutations():
     perms = itool.permutations(vne.get_vnrs(), r=None)
     config.best_embeddings = {}
     config.max_accepted_vnrs = 0
-    vns_per_perm = []
+    config.vns_per_perm = []
     for i, per in enumerate(perms):
         #print("config.recursion_counter",config.recursion_counter)
         config.recursion_counter = 0
@@ -427,17 +424,17 @@ def run_permutations():
         config.current_emb_costs = {}
         del config.overall_cost
         config.overall_cost = 0
-        del vns_per_perm
-        vns_per_perm = []
+        del config.vns_per_perm
+        config.vns_per_perm = []
         config.feasible = False
         for idx, vnr in enumerate(per):
             config.total_operations +=  1
             embed(vnr)
 #            print("--", (idx, list(vnr[1])[0]))
-            vns_per_perm.append({idx: (list(vnr[1])[0], config.feasible)})
+            config.vns_per_perm.append({idx: (list(vnr[1])[0], config.feasible)})
             config.feasible = False
-        config.perms_list.extend((i,vns_per_perm))
-#        print("---",(i,vns_per_perm))
+        config.perms_list.extend((i,config.vns_per_perm))
+#        print("---",(i,config.vns_per_perm))
         current_perm = {i: {'embeddings': config.current_emb_costs, 'overall_cost': config.overall_cost}}
 #        config.embedding_costs.update(current_perm)
 #        config.all_embeddings.append(config.VWSNs)

@@ -33,6 +33,7 @@ reduced_adj = dict()
 link_weights = dict()
 two_hops = dict()
 
+vns_per_perm = []
 
 current_wsn = {}#nx.DiGraph()
 current_wsn_removed_edges = {}#nx.DiGraph()
