@@ -57,7 +57,7 @@ class WSN():
                     effected_edges.append((tx, n))
                     effected_edges.append((n, tx))
                 for nn in self.__adj_list[n]:
-                    #config.total_operations += 1
+                    ##config.total_operations += 1
                     #                #print(n, "->-> visit nn", nn)
                     if nn not in visited_nodes:
                         #                    #print("add if nn not in []", visited_nodes)
@@ -72,7 +72,7 @@ class WSN():
                 #            #print(rx, "-> visit n", n)
                 if n not in visited_nodes:
                     for nn in self.__adj_list[n]:
-                        #config.total_operations += 1
+                        ##config.total_operations += 1
                         #                    #print(n, "->-> visit nn", nn)
                         if nn not in visited_nodes:
                             #                        #print("add if nn not in []", visited_nodes)

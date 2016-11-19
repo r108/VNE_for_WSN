@@ -36,11 +36,13 @@ def update_all_links_attributes(wsn,plr, load):
 
 def update_node_attribs(nodes, node, load):
     for n, d in nodes.nodes_iter(data=True):
+        config.total_operations += 1
         if n == int(node):
             d['load'] = d['load']+int(load)
             #d['rank'] = len(adj[n])
 
 def update_link_attribs(wsn,u, v, plr, load):
+    config.total_operations += 1
     current_link_weight = LinkCost(wsn[u][v]['plr'], wsn[u][v]['load'])
     if plr is -1:
         wsn[u][v]['plr'] = wsn[u][v]['plr']
@@ -76,32 +78,35 @@ def on_line_vn_request():
     else:
         return
 
-def map_links_cost(e_list, e_set, required_load):
+def map_links_cost(e_list, e_set, required_load,wsn):
     link_embedding_cost = 0
     current_weight = 0
     for u,v in e_set:
+        config.total_operations += 1
         required = (e_list.count((u,v)) * required_load)
-        if config.online_flag:
-            current_weight = update_link_attribs(config.committed_wsn, int(u), int(v), -1, required)
-        else:
-            current_weight = update_link_attribs(config.wsn_for_this_perm, int(u), int(v), -1, required)
+#        if config.online_flag:
+#            current_weight = update_link_attribs(config.committed_wsn, int(u), int(v), -1, required)
+#        else:
+        current_weight = update_link_attribs(wsn, int(u), int(v), -1, required)
         link_embedding_cost +=(required * current_weight) #weighted cost
 #        link_embedding_cost += (required)
     return link_embedding_cost
 
-def map_nodes_cost(all_path_nodes, required_load):
+def map_nodes_cost(all_path_nodes, required_load,wsn):
     node_embedding_cost = 0
     for idx, pn in enumerate(all_path_nodes):
-        if config.online_flag:
-            update_node_attribs(config.committed_wsn, pn, required_load)
-        else:
-            update_node_attribs(config.wsn_for_this_perm, pn, required_load)
+        config.total_operations += 1
+#        if config.online_flag:
+#            update_node_attribs(config.committed_wsn, pn, required_load)
+#        else:
+        update_node_attribs(wsn, pn, required_load)
         node_embedding_cost += (required_load)
     return  node_embedding_cost
 
-def commit(VN_nodes, VN_links, required_load,e_list, e_list2, path_nodes, shortest_path):
-    n_cost = map_nodes_cost(VN_nodes.nodes(), required_load)
-    l_cost = map_links_cost(e_list, e_list2, required_load)
+def commit(VN_nodes, VN_links, required_load,e_list, e_list2, path_nodes, shortest_path,wsn):
+    config.total_operations += 1
+    n_cost = map_nodes_cost(VN_nodes.nodes(), required_load,wsn)
+    l_cost = map_links_cost(e_list, e_list2, required_load,wsn)
     cost = (n_cost+l_cost)
     vn = (VN_nodes, VN_links, shortest_path, path_nodes, cost, path_nodes[0])
     config.VWSNs.append(vn)
@@ -124,7 +129,7 @@ def commit(VN_nodes, VN_links, required_load,e_list, e_list2, path_nodes, shorte
 def check_link_constraints(e_list, e_list2, load, required_plr, wsn):
     VN_links = nx.DiGraph()
     for u,v in e_list2:
-        config.total_operations +=  1
+        config.verify_operations += 1
         required_load = load * e_list.count((u,v))
         if wsn.edge[u][v]['load'] + required_load > 100:
  #           #print("Link",u, v,"requires",wsn.edge[u][v]['load']," + ",required_load, "but have not got enough")
@@ -138,7 +143,7 @@ def check_link_constraints(e_list, e_list2, load, required_plr, wsn):
 def check_node_constraints(nodes_in_path, required_load, wsn):
     VN_nodes = nx.DiGraph()
     for idx,n in enumerate(nodes_in_path):
-        config.total_operations +=  1
+        config.verify_operations += 1
         VN_nodes.add_node(n, {'load': required_load})
         if wsn.node[n]['load'] + required_load > 100:
             if idx == 0:
@@ -159,20 +164,24 @@ def get_shortest_path(graph, frm, to):
     length,path = nx.bidirectional_dijkstra(graph, source=frm, target=to, weight='weight')
 #    length = nx.dijkstra_path_length(graph, source=frm, target=to, weight='weight')
     #print('Shortest path weight is ',length)
+    config.verify_operations += 1
     if (path is None) or (length >= 10000000):
         return None, None
     s_path = []
 #    print('Shortest path is ', end="")
     for idx, p in enumerate(path):
+        config.verify_operations += 1
         if idx == 0:
-            shortest_path.append((p, p+1))
+#            shortest_path.append((p, p+1))
 #            print(vis.CGREEN, p, "->", end="")
+            pass
         elif idx == (len(path) - 1):
 #            print(p, vis.CEND)
             pass
         else:
 #            print(p, "->", end="")
             pass
+
         if idx != len(path) - 1:
             s_path.append((path[idx], path[idx + 1]))
 #    #print("Shortest path links  ", shortest_path,"\n")
@@ -181,6 +190,7 @@ def get_shortest_path(graph, frm, to):
 def get_max_edge_load(wsn,node, is_source):
     max_load = 0
     for n in config.reduced_adj[node - 1]:
+        config.verify_operations += 1
         link_load = wsn[node][n]['load']
         if link_load > max_load:
             max_load = link_load
@@ -190,29 +200,46 @@ def get_max_edge_load(wsn,node, is_source):
                 max_load = link_load
     return max_load
 
-
+def check_frm_to_links(wsn,node,link_requirement):
+    for n in config.reduced_adj[node-1]:
+        config.verify_operations += 1
+        if (100 - wsn[node][n]['load'] < link_requirement['load']) or (100 - wsn[n][node]['load'] < link_requirement['load']):
+            return False
+    return True
 
 def verify_feasibility(link_reqiurement, frm, to, node_requirement):
-    config.total_operations +=  1
+    config.verify_operations += 1
     config.counter_value = config.counter_value+1
-    hops = len(nx.shortest_path(config.wsn, source=frm, target=to)) - 1
+#    hops = len(nx.shortest_path(config.wsn, source=frm, target=to)) - 1
+    hops = min_hops_dict.get((frm,to))
     max_load = 0
+    wsn = nx.DiGraph()
 
     if config.online_flag:
-        node_check, VN_nodes = check_node_constraints([frm, to], node_requirement, config.committed_wsn)
-        max_load = max([get_max_edge_load(config.committed_wsn, frm, True), get_max_edge_load(config.committed_wsn, to, False)])
+        wsn = config.committed_wsn
+#        node_check, VN_nodes = check_node_constraints([frm, to], node_requirement, config.committed_wsn)
+#        max_load = max([get_max_edge_load(config.committed_wsn, frm, True), get_max_edge_load(config.committed_wsn, to, False)])
     else:
-        node_check, VN_nodes = check_node_constraints([frm, to], node_requirement, config.wsn_for_this_perm)
-        max_load = max([get_max_edge_load(config.wsn_for_this_perm, frm, True),get_max_edge_load(config.wsn_for_this_perm, to, False)])
+        wsn = config.wsn_for_this_perm
+#        node_check, VN_nodes = check_node_constraints([frm, to], node_requirement, config.wsn_for_this_perm)
+#        max_load = max([get_max_edge_load(config.wsn_for_this_perm, frm, True),get_max_edge_load(config.wsn_for_this_perm, to, False)])
+    node_check, VN_nodes = check_node_constraints([frm, to], node_requirement, wsn)
+    max_load = max([get_max_edge_load(wsn, frm, True),get_max_edge_load(wsn, to, False)])
 
+    if not check_frm_to_links(wsn,to, link_reqiurement):
+        #print("Sink node ", to, "does not have enough link resource\nEMBEDDING FAILED!")
+        return False
+    if not check_frm_to_links(wsn,frm, link_reqiurement):
+        #print("Source node ", frm, "does not have enough link resource\nEMBEDDING FAILED!")
+        return False
     if node_check != 0:
         #print("node ", node_check, "does not have enough resource\nEMBEDDING FAILED!")
         return False
 
-#    if(hops > 2):
-#        if (link_reqiurement['load']*2) > (100 - max_load):
- #           #print("Failed!",frm,to," cannot support request")
-#            return False
+    if(hops > 2):
+        if (link_reqiurement['load']*2) > (100 - max_load):
+           #print("Failed!",frm,to," cannot support request")
+            return False
 
     #print("verify feasibility----------------------",config.counter_value,"counter ")
     shortest_path, path_nodes = get_shortest_path(config.current_wsn, frm, to)
@@ -224,25 +251,26 @@ def verify_feasibility(link_reqiurement, frm, to, node_requirement):
     # get list of unique nodes from conflicting link list
     effected_nodes = []
     for u, v in e_set:
+        config.verify_operations += 1
         if u not in effected_nodes:
             effected_nodes.append(u)
         if v not in effected_nodes:
             effected_nodes.append(v)
-    if config.online_flag:
-        node_check, VN_nodes = check_node_constraints(effected_nodes, node_requirement, config.committed_wsn)
-    else:
-        node_check, VN_nodes = check_node_constraints(effected_nodes, node_requirement, config.wsn_for_this_perm)
+#    if config.online_flag:
+#        node_check, VN_nodes = check_node_constraints(effected_nodes, node_requirement, config.committed_wsn)
+#    else:
+    node_check, VN_nodes = check_node_constraints(effected_nodes, node_requirement, wsn)
     if node_check != 0:
         #print("node ", node_check, "does not have enough resource\nEMBEDDING FAILED!")
         return False
-    elif config.online_flag:
-        link_check, VN_links = check_link_constraints(e_list, e_set, link_reqiurement['load'], link_reqiurement['plr'],config.committed_wsn)
+#    elif config.online_flag:
+#        link_check, VN_links = check_link_constraints(e_list, e_set, link_reqiurement['load'], link_reqiurement['plr'],config.committed_wsn)
     else:
-        link_check, VN_links = check_link_constraints(e_list, e_set, link_reqiurement['load'], link_reqiurement['plr'],config.wsn_for_this_perm)
+        link_check, VN_links = check_link_constraints(e_list, e_set, link_reqiurement['load'], link_reqiurement['plr'],wsn)
     if link_check == (0,0):
         #print("++SUCCESSFUL EMBEDDING++")
         config.has_embedding = True
-        commit(VN_nodes, VN_links, node_requirement, e_list, e_set, path_nodes, shortest_path)
+        commit(VN_nodes, VN_links, node_requirement, e_list, e_set, path_nodes, shortest_path, wsn)
         config.feasible = True
 #        print("commit-",path_nodes[0])
         return False
@@ -259,18 +287,19 @@ def verify_feasibility(link_reqiurement, frm, to, node_requirement):
         #verify_feasibility(link_reqiurement, frm, to, node_requirement)
 
 def check_again(link_reqiurement, frm, to, node_requirement):
+    config.verify_operations += 1
     if config.feasible == False:
         is_failed = verify_feasibility(link_reqiurement, frm, to, node_requirement)
         if is_failed:
             print("Verify failed!!! ")
             pass
-
+'''
 ##This is simpler but very inefficient
 def get_conflictng_edges(path_nodes):
     e_list2 = []
     e_set2 = []
     for i, tx in enumerate(path_nodes):
-#       config.total_operations += 1
+        ##config.total_operations += 1+= 1
         if i < (len(path_nodes) - 1):
             del e_set2
             # get all edges of Tx
@@ -278,34 +307,36 @@ def get_conflictng_edges(path_nodes):
             e_set2.extend(wsn_substrate.get_wsn_substrate().out_edges(tx))
             # get all edges for all neighbors of Tx
             for txn in nx.neighbors(wsn_substrate.get_wsn_substrate(), tx):
-#               config.total_operations += 1
+                ##config.total_operations += 1+= 1
                 e_set2.extend(wsn_substrate.get_wsn_substrate().in_edges(txn))
                 e_set2.extend(wsn_substrate.get_wsn_substrate().out_edges(txn))
             # get all out edges of Rx
             for rxn in nx.neighbors(wsn_substrate.get_wsn_substrate(), path_nodes[i + 1]):
- #              config.total_operations += 1
+                ##config.total_operations += 1+= 1
                 e_set2.extend(wsn_substrate.get_wsn_substrate().out_edges(rxn))
             e_set2 = list(set(e_set2))
             e_list2.extend(e_set2)
     e_set2 = list(set(e_list2))
     return e_list2, e_set2
-
+'''
 
 def get_conflicting_links(path_nodes):
+    config.verify_operations += 1
 #    tx_nodes = copy.deepcopy(path_nodes)
     tx_nodes = list(path_nodes)
     tx_nodes.pop()
     #    #print("tx_nodes",tx_nodes,"\npath_nodes",path_nodes)
     effected_edges = []
     #    #print("initialize effected_edges",effected_edges)
-
     for i, rx in enumerate(path_nodes):
-        config.total_operations += 1
+        config.verify_operations += 1
         if i != 0:
             effected_edges.extend(conflicting_links_dict[path_nodes[i-1]][rx])
     effected_edges_set = list(set(effected_edges))
     return effected_edges, effected_edges_set
 
+'''
+##This was re-implemented in wsn_substrate.py to pre-compute it before the algorithm runs
 def get_conflicting_links__(path_nodes):
 #    tx_nodes = copy.deepcopy(path_nodes)
     tx_nodes = list(path_nodes)
@@ -314,18 +345,20 @@ def get_conflicting_links__(path_nodes):
     effected_edges = []
 #    #print("initialize effected_edges",effected_edges)
     for i,tx in enumerate(tx_nodes):
+        ##config.total_operations += 1+= 1
         visited_nodes = []
 #        #print(i,"visit tx", tx)
         visited_nodes.append(tx)
 #        #print(tx,"appended to visited nodes", visited_nodes)
         for n in config.reduced_adj[tx-1]:
+            ##config.total_operations += 1+= 1
 #            #print(tx,"-> visit n", n)
             if n not in visited_nodes:
 #                #print("add if n not in []",visited_nodes)
                 effected_edges.append((tx, n))
                 effected_edges.append((n, tx))
             for nn in config.reduced_adj[n-1]:
-                config.total_operations += 1
+                ##config.total_operations += 1+= 1
 #                #print(n, "->-> visit nn", nn)
                 if nn not in visited_nodes:
 #                    #print("add if nn not in []", visited_nodes)
@@ -337,10 +370,12 @@ def get_conflicting_links__(path_nodes):
         rx = path_nodes[i+1]
 #        #print(i, "visit rx", rx)
         for n in config.reduced_adj[rx-1]:
+            ##config.total_operations += 1+= 1
 #            #print(rx, "-> visit n", n)
             if n not in visited_nodes:
+                ##config.total_operations += 1+= 1
                 for nn in config.reduced_adj[n-1]:
-                    config.total_operations += 1
+                    ##config.total_operations += 1+= 1
 #                    #print(n, "->-> visit nn", nn)
                     if nn not in visited_nodes:
 #                        #print("add if nn not in []", visited_nodes)
@@ -349,6 +384,7 @@ def get_conflicting_links__(path_nodes):
 #                #print(n, "appended to visited nodes in rx", visited_nodes)
     effected_edges_set = list(set(effected_edges))
     return effected_edges, effected_edges_set
+'''
 
 def embed(vnr):
     #print("BEGIN VNR EMBEDDING", vnr)
@@ -365,6 +401,7 @@ def embed(vnr):
     del config.avoid
     config.avoid = []
     config.feasible = False
+    wsn = nx.DiGraph()
     if config.online_flag:
         config.VWSNs = []
         config.current_emb_costs = {}
@@ -389,12 +426,19 @@ def embed(vnr):
     verify_feasibility(link_reqiurement, frm, to, node_requirement)
 
 def evaluate_perms(current_perm):
-    keys = [k for k in current_perm]
+#    keys = [k for k in current_perm]
+    keys = []
+    for k in current_perm:
+        #print(k)
+        config.total_operations += 1
+        keys.append(k)
     source_nodes = []
     overall_cost = current_perm[keys[0]]['overall_cost']
     for k, v in current_perm[keys[0]]['embeddings'].items():
+        config.total_operations += 1
         source_nodes.append(k)
     if len(config.best_embeddings) != 0:
+        config.total_operations += 1
         if config.max_accepted_vnrs < len(source_nodes):
             config.max_accepted_vnrs = len(source_nodes)
             current_key = list(config.best_embeddings.keys())
@@ -420,6 +464,7 @@ def evaluate_perms(current_perm):
                 config.active_vns = list(config.VWSNs)
 
     else:
+        config.total_operations += 1
         config.best_embeddings.update({str(source_nodes): {'overall_cost': overall_cost, 'permutation': keys[0]}})
         config.max_accepted_vnrs = len(source_nodes)
         del config.committed_wsn
@@ -436,7 +481,11 @@ def run_permutations():
     config.best_embeddings = {}
     config.max_accepted_vnrs = 0
     config.vns_per_perm = []
+    config.total_operations = 0
+    config.dijkstra_operations = 0
+    config.link_penalize_operations = 0
     for i, per in enumerate(perms):
+        config.total_operations += 1
         #print("config.recursion_counter",config.recursion_counter)
         config.recursion_counter = 0
         #print("Permutation ",i)
@@ -460,7 +509,7 @@ def run_permutations():
         config.vns_per_perm = []
         config.feasible = False
         for idx, vnr in enumerate(per):
-            config.total_operations +=  1
+            config.total_operations += 1
             embed(vnr)
 #            print("--", (idx, list(vnr[1])[0]))
             config.vns_per_perm.append({idx: (list(vnr[1])[0], config.feasible)})
@@ -481,6 +530,11 @@ def run_permutations():
     print("Optimal solution is:", config.best_embeddings)
     end = time.time()
     print(end - config.start)
+    print("dijkstra # operation:", config.dijkstra_operations)
+    print("link_penalise # operation:", config.link_penalize_operations)
+    print("verify_operations # operation:", config.verify_operations)
+    print("other mapping # operation:", config.total_operations)
+    config.total_operations = config.verify_operations + config.dijkstra_operations + config.total_operations + config.link_penalize_operations
     print("total # operation:", config.total_operations)
 
 def show_penalized_links():
@@ -496,13 +550,14 @@ def recalculate_path_weights(frm,to,path_n,shortest_path):
         if user_input is '':
             return True
     for (u, v) in config.avoid:
+        config.link_penalize_operations += 1
         #print("recalculate",u,v)
 #        path_nodes = copy.deepcopy(path_n)
         path_nodes = list(path_n)
         path_n.reverse()
 #        #print(path_nodes)
 #        #print(path_n)
-        config.total_operations += 1
+        ##config.total_operations += 1+= 1
         config.avoid.remove((u, v))
         config.current_wsn[u][v]['weight'] = 10000000 #penalize link
         config.penalized_list.append((u, v))
@@ -518,6 +573,7 @@ def recalculate_path_weights(frm,to,path_n,shortest_path):
         if len(path_nodes) == 2:
             #print("Source node", frm, "does not have enough resource.\nEMBEDDING HAS FAILED!")
             for n in config.reduced_adj[frm - 1]:
+                config.link_penalize_operations += 1
                 config.current_wsn[frm][n]['weight'] = 10000000  # make path cost unfeasible
             return False
         ##changed to elif
@@ -536,9 +592,11 @@ def recalculate_path_weights(frm,to,path_n,shortest_path):
             if (len(path_nodes) <= 3) or (v != path_nodes[1]):
                 #print("Source node u", u, "does not have enough resource.\nEMBEDDING HAS FAILED!")
                 for n in config.reduced_adj[frm-1]:
+                    config.link_penalize_operations += 1
                     config.current_wsn[frm][n]['weight'] = 10000000 #make path cost unfeasible
             elif v == path_nodes[1]:
                 for n in path_n:
+                    config.link_penalize_operations += 1
                     if n in config.reduced_adj[frm-1]:
                         config.current_wsn[path_n[path_n.index(n) + 1]][n]['weight'] = 10000000
                         #print("Source node u", u, "does not have enough resource.\nEMBEDDING HAS FAILED!")
@@ -553,9 +611,11 @@ def recalculate_path_weights(frm,to,path_n,shortest_path):
             if (len(path_nodes) <= 3) or (u != path_nodes[1]):
                 #print("Source node v", v, "does not have enough resource.\nEMBEDDING HAS FAILED!")
                 for n in config.reduced_adj[frm-1]:
+                    config.link_penalize_operations += 1
                     config.current_wsn[frm][n]['weight'] = 10000000 #make path cost unfeasible
             elif u == path_nodes[1]:
                 for n in path_n:
+                    config.link_penalize_operations += 1
                     if n in config.reduced_adj[frm-1]:
                         config.current_wsn[path_n[path_n.index(n) + 1]][n]['weight'] = 10000000
                         #print("Source node v", v, "does not have enough resource.\nEMBEDDING HAS FAILED!")
@@ -569,12 +629,18 @@ def recalculate_path_weights(frm,to,path_n,shortest_path):
         elif u == to:
             #print("Sink node u", u, "does not have enough resource.\nEMBEDDING HAS FAILED!")
             for n in config.reduced_adj[frm - 1]:
+                config.link_penalize_operations += 1
                 config.current_wsn[frm][n]['weight'] = 10000000  # make path cost unfeasible
             return False
         elif v == to:
             if (u != path_n[1]) and (path_n[2] not in config.reduced_adj[u-1]):
-                #print("Sink node u", u, "does not have enough resource.\nEMBEDDING HAS FAILED!")
-                for n in config.reduced_adj[to-1]:
+                print(u,v)
+                print(frm,to)
+                print(path_n)
+                print("Sink node u", u, "does not have enough resource.\nEMBEDDING HAS FAILED!")
+ #               for n in config.reduced_adj[to-1]:
+                for n in config.reduced_adj[frm - 1]:
+                    config.link_penalize_operations += 1
                     config.current_wsn[frm][n]['weight'] = 10000000 #make path cost unfeasible
             elif u == path_n[1]:
                 #print(u, v, "u-v link is in path! Penalize link (predecessor of u)->u!")
@@ -602,6 +668,7 @@ def recalculate_path_weights(frm,to,path_n,shortest_path):
             return False
         else:
             for n in path_n:
+                config.link_penalize_operations += 1
                 nbr = config.reduced_adj[n-1]
                 ##print("n",n)
                 ##print("nbr",nbr)
@@ -723,18 +790,21 @@ def get_k_shortest_paths(wsn,source,sink,k,weight=None):
         #print(p)
     return k_paths
 
-def get_min_hops():
+def get_min_hops(sink):
     config.reduced_adj = list(adjacencies)
     #k_paths = nx.shortest_simple_paths(config.wsn,source=34,target=1)
     #k_paths = islice(k_paths,1000)
     #for p in k_paths:
         #print(p)
-
-    print(len(nx.shortest_path(config.wsn,source=(56),target=1))-1)
+    min_hops = {}
+    #print(len(nx.shortest_path(config.wsn,source=(56),target=sink))-1)
     for n in config.wsn.nodes():
         if n !=1:
-            min_h = nx.shortest_path(config.wsn,source=(n),target=1)
-            print((n),"to 1 is", (len(min_h)-1),"hops via",min_h)
+            min_h = nx.shortest_path(config.wsn,source=(n),target=sink)
+            min_hops.update({(n,sink):(len(min_h)-1)})
+            print((n),"to",sink,"is", (len(min_h)-1),"hops via",min_h)
+            print(min_hops)
+    return min_hops
 '''
     user_inp = input('source:')
     if user_inp is not '':
@@ -755,12 +825,14 @@ def get_min_hops():
 '''
 
 if __name__ == '__main__':
+
     link_weights = wsn_substrate.get_link_weights()
     #adjacencies = wsn_substrate.get_adjacency_list()
     adjacencies = wsn_substrate.get_wsn_substrate().adjacency_list()
     config.wsn = wsn_substrate.get_wsn_substrate()
     two_hops_list = wsn_substrate.get_two_hops_list()
     conflicting_links_dict = wsn_substrate.get_conflicting_links()
+    min_hops_dict = get_min_hops(1)
 #    print("cl",conflicting_links[1][9])
     update_all_links_attributes(config.wsn,1, 1)
     shortest_path, path_nodes = [],[]
@@ -811,4 +883,4 @@ if __name__ == '__main__':
             else:
                 pass
         elif user_input is '5':
-            get_min_hops()
+            get_min_hops(1)
