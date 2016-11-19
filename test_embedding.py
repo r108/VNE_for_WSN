@@ -290,8 +290,25 @@ def get_conflictng_edges(path_nodes):
     e_set2 = list(set(e_list2))
     return e_list2, e_set2
 
+
 def get_conflicting_links(path_nodes):
-    tx_nodes = copy.deepcopy(path_nodes)
+#    tx_nodes = copy.deepcopy(path_nodes)
+    tx_nodes = list(path_nodes)
+    tx_nodes.pop()
+    #    #print("tx_nodes",tx_nodes,"\npath_nodes",path_nodes)
+    effected_edges = []
+    #    #print("initialize effected_edges",effected_edges)
+
+    for i, rx in enumerate(path_nodes):
+        config.total_operations += 1
+        if i != 0:
+            effected_edges.extend(conflicting_links_dict[path_nodes[i-1]][rx])
+    effected_edges_set = list(set(effected_edges))
+    return effected_edges, effected_edges_set
+
+def get_conflicting_links__(path_nodes):
+#    tx_nodes = copy.deepcopy(path_nodes)
+    tx_nodes = list(path_nodes)
     tx_nodes.pop()
 #    #print("tx_nodes",tx_nodes,"\npath_nodes",path_nodes)
     effected_edges = []
@@ -336,7 +353,8 @@ def get_conflicting_links(path_nodes):
 def embed(vnr):
     #print("BEGIN VNR EMBEDDING", vnr)
     del config.two_hops
-    config.two_hops = copy.deepcopy(two_hops_list)
+#    config.two_hops = copy.deepcopy(two_hops_list)
+    config.two_hops = list(two_hops_list)
     del config.penalized_list
     config.penalized_list = []
     vwsn_nodes = vnr[1]
@@ -351,18 +369,23 @@ def embed(vnr):
         config.VWSNs = []
         config.current_emb_costs = {}
         if config.has_embedding == False:
-            config.committed_wsn = copy.deepcopy(config.wsn)
-        config.current_wsn = copy.deepcopy(config.committed_wsn)
-        config.reduced_adj = copy.deepcopy(config.committed_wsn.adjacency_list())
+#            config.committed_wsn = copy.deepcopy(config.wsn)
+            config.committed_wsn = nx.DiGraph(config.wsn)
+#        config.current_wsn = copy.deepcopy(config.committed_wsn)
+        config.current_wsn = nx.DiGraph(config.committed_wsn)
+#        config.reduced_adj = copy.deepcopy(config.committed_wsn.adjacency_list())
+        config.reduced_adj = list(config.committed_wsn.adjacency_list())
     else:
         #print(config.current_wsn.edges(data=True))
         #print(config.wsn_for_this_perm.edges(data=True))
         del config.current_wsn
-        config.current_wsn = copy.deepcopy(config.wsn_for_this_perm)
+#        config.current_wsn = copy.deepcopy(config.wsn_for_this_perm)
+        config.current_wsn = nx.DiGraph(config.wsn_for_this_perm)
         #print(config.current_wsn.edges(data=True))
         #print(config.wsn_for_this_perm.edges(data=True))
         del config.reduced_adj
-        config.reduced_adj = copy.deepcopy(config.adjacencies_for_this_perm)
+#        config.reduced_adj = copy.deepcopy(config.adjacencies_for_this_perm)
+        config.reduced_adj = list(config.adjacencies_for_this_perm)
     verify_feasibility(link_reqiurement, frm, to, node_requirement)
 
 def evaluate_perms(current_perm):
@@ -378,9 +401,11 @@ def evaluate_perms(current_perm):
             config.best_embeddings.pop(current_key[0], 0)
             config.best_embeddings.update({str(source_nodes): {'overall_cost': overall_cost, 'permutation': keys[0]}})
             del config.committed_wsn
-            config.committed_wsn = copy.deepcopy(config.wsn_for_this_perm)
+            #        config.committed_wsn = copy.deepcopy(config.wsn_for_this_perm)
+            config.committed_wsn = nx.DiGraph(config.wsn_for_this_perm)
             del config.active_vns
-            config.active_vns = copy.deepcopy(config.VWSNs)
+            #        config.active_vns = copy.deepcopy(config.VWSNs)
+            config.active_vns = list(config.VWSNs)
         elif config.max_accepted_vnrs == len(source_nodes):
             current_key = list(config.best_embeddings.keys())
             best_cost = config.best_embeddings[current_key[0]]['overall_cost']
@@ -388,16 +413,21 @@ def evaluate_perms(current_perm):
                 config.best_embeddings.pop(current_key[0],0)
                 config.best_embeddings.update({str(source_nodes): {'overall_cost': overall_cost, 'permutation': keys[0]}})
                 del config.committed_wsn
-                config.committed_wsn = copy.deepcopy(config.wsn_for_this_perm)
+                #        config.committed_wsn = copy.deepcopy(config.wsn_for_this_perm)
+                config.committed_wsn = nx.DiGraph(config.wsn_for_this_perm)
                 del config.active_vns
-                config.active_vns = copy.deepcopy(config.VWSNs)
+                #        config.active_vns = copy.deepcopy(config.VWSNs)
+                config.active_vns = list(config.VWSNs)
+
     else:
         config.best_embeddings.update({str(source_nodes): {'overall_cost': overall_cost, 'permutation': keys[0]}})
         config.max_accepted_vnrs = len(source_nodes)
         del config.committed_wsn
-        config.committed_wsn = copy.deepcopy(config.wsn_for_this_perm)
+#        config.committed_wsn = copy.deepcopy(config.wsn_for_this_perm)
+        config.committed_wsn = nx.DiGraph(config.wsn_for_this_perm)
         del config.active_vns
-        config.active_vns = copy.deepcopy(config.VWSNs)
+#        config.active_vns = copy.deepcopy(config.VWSNs)
+        config.active_vns = list(config.VWSNs)
 
 def run_permutations():
     config.online_flag = False
@@ -416,9 +446,11 @@ def run_permutations():
         #        pass
         #config.link_weights_for_this_perm = copy.deepcopy(link_weights)
         del config.adjacencies_for_this_perm
-        config.adjacencies_for_this_perm = copy.deepcopy(adjacencies)
+#        config.adjacencies_for_this_perm = copy.deepcopy(adjacencies)
+        config.adjacencies_for_this_perm = list(adjacencies)
         del config.wsn_for_this_perm
-        config.wsn_for_this_perm = copy.deepcopy(config.wsn)
+#        config.wsn_for_this_perm = copy.deepcopy(config.wsn)
+        config.wsn_for_this_perm = nx.DiGraph(config.wsn)
         del config.VWSNs
         config.VWSNs = []
         config.current_emb_costs = {}
@@ -465,7 +497,8 @@ def recalculate_path_weights(frm,to,path_n,shortest_path):
             return True
     for (u, v) in config.avoid:
         #print("recalculate",u,v)
-        path_nodes = copy.deepcopy(path_n)
+#        path_nodes = copy.deepcopy(path_n)
+        path_nodes = list(path_n)
         path_n.reverse()
 #        #print(path_nodes)
 #        #print(path_n)
@@ -691,7 +724,7 @@ def get_k_shortest_paths(wsn,source,sink,k,weight=None):
     return k_paths
 
 def get_min_hops():
-    config.reduced_adj = copy.deepcopy(adjacencies)
+    config.reduced_adj = list(adjacencies)
     #k_paths = nx.shortest_simple_paths(config.wsn,source=34,target=1)
     #k_paths = islice(k_paths,1000)
     #for p in k_paths:
@@ -727,6 +760,8 @@ if __name__ == '__main__':
     adjacencies = wsn_substrate.get_wsn_substrate().adjacency_list()
     config.wsn = wsn_substrate.get_wsn_substrate()
     two_hops_list = wsn_substrate.get_two_hops_list()
+    conflicting_links_dict = wsn_substrate.get_conflicting_links()
+#    print("cl",conflicting_links[1][9])
     update_all_links_attributes(config.wsn,1, 1)
     shortest_path, path_nodes = [],[]
     vis.display_edge_attr(config.wsn)

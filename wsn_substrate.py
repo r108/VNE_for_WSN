@@ -1,4 +1,5 @@
 import networkx as nx
+import copy
 
 class WSN():
 
@@ -6,16 +7,20 @@ class WSN():
     __link_weights = dict()
     __adj_list = dict()
     __two_hops_list = dict()
-    __exclusive_two_hops_list = dict()
+    __conflicting_links = dict()
+
 
     def __init__(self):
         self.init_wsn_substrate(self.get_adjacency_list())
         self.init_two_hop_neighborhood(self.get_adjacency_list())
-        self.init_exclusive_two_hop_neighborhood(self.get_adjacency_list())
+        self.init_conflicting_links(self.get_adjacency_list())
 
 
     def get_wsn_substrate(self):
         return self.__WSN_Substrate
+
+    def get_conflicting_links(self):
+        return self.__conflicting_links
 
     def get_link_weights(self):
         return self.__link_weights
@@ -33,15 +38,63 @@ class WSN():
             self.__two_hops_list[n] = list(set([x for x in if_list if x != n]))
         #print("Interferences ",self.__two_hops_list)
 
-    def init_exclusive_two_hop_neighborhood(self, adj_list):
-        for n in adj_list:
-            items = adj_list.get(n)
-            if_list = []
-            if_list.extend(items)
-            for i in items:
-                if_list.extend(adj_list.get(i))
-            self.__two_hops_list[n] = list(set([x for x in if_list if x != n]))
-        #print("Interferences ",self.__two_hops_list)
+    def calculate_conflicting_links(self, path_nodes):
+        self.__adj_list
+        tx_nodes = copy.deepcopy(path_nodes)
+        tx_nodes.pop()
+        #    #print("tx_nodes",tx_nodes,"\npath_nodes",path_nodes)
+        effected_edges = []
+        #    #print("initialize effected_edges",effected_edges)
+        for i, tx in enumerate(tx_nodes):
+            visited_nodes = []
+            #        #print(i,"visit tx", tx)
+            visited_nodes.append(tx)
+            #        #print(tx,"appended to visited nodes", visited_nodes)
+            for n in self.__adj_list[tx]:
+                #            #print(tx,"-> visit n", n)
+                if n not in visited_nodes:
+                    #                #print("add if n not in []",visited_nodes)
+                    effected_edges.append((tx, n))
+                    effected_edges.append((n, tx))
+                for nn in self.__adj_list[n]:
+                    #config.total_operations += 1
+                    #                #print(n, "->-> visit nn", nn)
+                    if nn not in visited_nodes:
+                        #                    #print("add if nn not in []", visited_nodes)
+                        effected_edges.append((n, nn))
+                        effected_edges.append((nn, n))
+                visited_nodes.append(n)
+                #            #print(n, "appended to visited nodes in tx", visited_nodes)
+                #            #print(i," in length",len(path_nodes))
+            rx = path_nodes[i + 1]
+            #        #print(i, "visit rx", rx)
+            for n in self.__adj_list[rx]:
+                #            #print(rx, "-> visit n", n)
+                if n not in visited_nodes:
+                    for nn in self.__adj_list[n]:
+                        #config.total_operations += 1
+                        #                    #print(n, "->-> visit nn", nn)
+                        if nn not in visited_nodes:
+                            #                        #print("add if nn not in []", visited_nodes)
+                            effected_edges.append((n, nn))
+                    visited_nodes.append(n)
+                    #                #print(n, "appended to visited nodes in rx", visited_nodes)
+            effected_edges_set = list(set(effected_edges))
+            return effected_edges, effected_edges_set
+
+
+    def init_conflicting_links(self, adj_list):
+        for node in adj_list:
+            neighbors = adj_list.get(node)
+            neighbor_conflict = {}
+            for neighbor in neighbors:
+                path = [node,neighbor]
+                e_list, e_set = self.calculate_conflicting_links(path)
+                neighbor_conflict.update({neighbor:e_set})
+                #print(neighbor,"e_lis",sorted(e_list))
+                #print(neighbor,"e_set",sorted(e_set))
+            self.__conflicting_links.update({node:neighbor_conflict})
+        print("__conflicting_links",self.__conflicting_links)
 
     def init_wsn_substrate(self, links):
         adj_list = links
@@ -57,7 +110,6 @@ class WSN():
         self.__adj_list = adj_list
 
     def get_adjacency_list(self):
-
         self.__adj_list = {1: [2, 9],
          2: [1, 3, 10],
          3: [2, 4, 11],
@@ -114,8 +166,9 @@ class WSN():
         54:[46, 53, 55],
         55:[47, 54, 56],
         56:[48, 55],}
-
         return self.__adj_list
+
+
     def get_nodes_position(self):
 
         position = {1:(0,0),
