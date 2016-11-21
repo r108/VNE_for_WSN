@@ -1,6 +1,5 @@
 
-
-import copy
+#import copy
 import itertools as itool
 from wsn_substrate import WSN
 import networkx as nx
@@ -10,8 +9,9 @@ import vne
 import time
 import visualize as vis
 from itertools import islice
-import cProfile
-import re
+#import ast
+#import cProfile
+#import re
 
 wsn_substrate = WSN()
 exit_flag = True
@@ -146,7 +146,9 @@ def get_shortest_path(graph, frm, to):
     #modified the below file to return 2 parameters (path, length) instead of 1 path
     #/home/roland/anaconda3/lib/python3.5/site-packages/networkx/algorithms/shortest_paths/weighted.py
 #    path, length = nx.dijkstra_path(graph, source=frm, target=to, weight='weight')
-    length,path = nx.bidirectional_dijkstra(graph, source=frm, target=to, weight='weight')
+#    length,path = nx.bidirectional_dijkstra(graph, source=frm, target=to, weight='weight')
+    #length,path = nx.astar_path(graph, source=frm, target=to, heuristic=None, weight='weight')
+    length, path = nx.astar_path_length(graph, source=frm, target=to, heuristic=None, weight='weight')
 #    length = nx.dijkstra_path_length(graph, source=frm, target=to, weight='weight')
     #print('Shortest path weight is ',length)
     config.verify_operations += 1
@@ -322,7 +324,7 @@ def get_conflicting_links__(path_nodes):
     return effected_edges, effected_edges_set
 '''
 
-def embed(vnr):
+def embed(vnr,idx,prev_success):
     #print("BEGIN VNR EMBEDDING", vnr)
     del config.two_hops
     config.two_hops = list(two_hops_list)
@@ -335,7 +337,6 @@ def embed(vnr):
     node_requirement = vwsn_nodes[1]['load']
     del config.avoid
     config.avoid = []
-    config.feasible = False
     wsn = nx.DiGraph()
     if config.online_flag:
         config.VWSNs = []
@@ -345,12 +346,26 @@ def embed(vnr):
         config.current_wsn = nx.DiGraph(config.committed_wsn)
         config.reduced_adj = list(config.committed_wsn.adjacency_list())
     else:
+        #check if same request has failed in previous perm at a higher position
+        if not prev_success:
+            #print("return")
+            return False
+        #check if current sequence has been memoized
+        if str(config.current_key_prefix) in config.already_mapped_vnrs:
+            config.wsn_for_this_perm = nx.DiGraph(config.already_mapped_vnrs[str(config.current_key_prefix)]['graph'])
+            config.current_emb_costs = dict(config.already_mapped_vnrs[str(config.current_key_prefix)]['embeddings'])    #.update({path_nodes[0]: cost})
+            config.overall_cost = int(config.already_mapped_vnrs[str(config.current_key_prefix)]['overall_cost'])
+            return False
         del config.current_wsn
         config.current_wsn = nx.DiGraph(config.wsn_for_this_perm)
         del config.reduced_adj
         config.reduced_adj = list(config.adjacencies_for_this_perm)
+    config.perm_counter += 1
+    config.feasible = False
     verify_feasibility(link_reqiurement, frm, to, node_requirement)
+    return True
 
+#evaluate the quality of the embeddings based on the objective function [min (Cost(max (VNRs())))]
 def evaluate_perms(current_perm):
 #    keys = [k for k in current_perm]
     keys = []
@@ -358,6 +373,7 @@ def evaluate_perms(current_perm):
         #print(k)
         config.total_operations += 1
         keys.append(k)
+
     source_nodes = []
     overall_cost = current_perm[keys[0]]['overall_cost']
     for k, v in current_perm[keys[0]]['embeddings'].items():
@@ -393,13 +409,27 @@ def evaluate_perms(current_perm):
         del config.active_vns
         config.active_vns = list(config.VWSNs)
 
+#memoize and use already calculated sequences to eliminate duplicate work
+def memoize_perms():
+    if len(config.prefix_length) < len(config.current_key_prefix):
+        config.prefix_length.append(list(config.current_key_prefix))
+        config.already_mapped_vnrs.update({str(config.current_key_prefix): {
+            'graph': nx.DiGraph(config.wsn_for_this_perm), 'embeddings': dict(config.current_emb_costs),
+            'overall_cost': int(config.overall_cost)}})
+    elif config.prefix_length[len(config.current_key_prefix) - 1] != config.current_key_prefix:
+        config.already_mapped_vnrs.pop(str(config.prefix_length[len(config.current_key_prefix) - 1]))
+        config.prefix_length[len(config.current_key_prefix) - 1] = config.current_key_prefix
+        config.already_mapped_vnrs.update({str(config.current_key_prefix): {
+            'graph': nx.DiGraph(config.wsn_for_this_perm), 'embeddings': dict(config.current_emb_costs),
+            'overall_cost': int(config.overall_cost)}})
+
 def run_permutations():
     config.online_flag = False
     config.start = time.time()
     perms = itool.permutations(vne.get_vnrs(), r=None)
     config.best_embeddings = {}
     config.max_accepted_vnrs = 0
-    config.vns_per_perm = []
+    config.vns_per_perm = {}
     config.total_operations = 0
     config.dijkstra_operations = 0
     config.link_penalize_operations = 0
@@ -407,8 +437,8 @@ def run_permutations():
         config.total_operations += 1
         config.recursion_counter = 0
         #print("Permutation ",i)
-        del config.adjacencies_for_this_perm
-        config.adjacencies_for_this_perm = list(adjacencies)
+        del config.adjacencies_for_this_perm     #no need to recreate fix this
+        config.adjacencies_for_this_perm = list(adjacencies) #no need to recreate fix this
         del config.wsn_for_this_perm
         config.wsn_for_this_perm = nx.DiGraph(config.wsn)
         del config.VWSNs
@@ -417,16 +447,38 @@ def run_permutations():
         del config.overall_cost
         config.overall_cost = 0
         del config.vns_per_perm
-        config.vns_per_perm = []
+        config.vns_per_perm = {}
         config.feasible = False
+        if i != 0:
+            config.previous_perm = list(config.current_perm)
+        config.current_perm = []
         for idx, vnr in enumerate(per):
             config.total_operations += 1
-            embed(vnr)
-            #print("--", (idx, list(vnr[1])[0]))
-            config.vns_per_perm.append({idx: (list(vnr[1])[0], config.feasible)})
-            config.feasible = False
-        config.perms_list.extend((i,config.vns_per_perm))
-        #print("---",(i,config.vns_per_perm))
+            config.current_perm.append(vnr[1][0])
+        config.current_key_prefix = []
+        for idx, vnr in enumerate(per):
+            current_success = True
+            config.total_operations += 1
+            config.current_key_prefix = config.current_key_prefix + [(idx, vnr[1][0])]
+            #check the state of the same reqest in the previous perm
+            if i > 0 and idx > 0:
+                previous_position = list(config.perms_list[i-1][vnr[1][0]].keys())[0]
+                success = config.perms_list[i - 1][vnr[1][0]].get(previous_position)
+                if previous_position < idx and success is False:
+                    current_success = False
+            if embed(vnr, idx, current_success):
+                current_success = config.feasible
+            else:
+                previous_position = list(config.perms_list[i - 1][vnr[1][0]].keys())[0]
+                current_success = config.perms_list[i - 1][vnr[1][0]].get(previous_position)
+            config.vns_per_perm.update({vnr[1][0]: {idx: current_success }})
+            if idx < len(per) -2:
+               memoize_perms()
+            #print(config.vns_per_perm)
+            #print(config.perms_list)
+        if i > 1:
+            config.perms_list.pop(i-2)
+        config.perms_list.update({i:config.vns_per_perm})
         current_perm = {i: {'embeddings': config.current_emb_costs, 'overall_cost': config.overall_cost}}
 #        config.embedding_costs.update(current_perm)
 #        config.all_embeddings.append(config.VWSNs)
@@ -437,6 +489,7 @@ def run_permutations():
     #print()
     #print("All feasible embddings:", config.all_embeddings)
     #print("All embedding costs:", config.embedding_costs)
+    print("perm_counter",config.perm_counter)
     end = time.time()
     print(end - config.start)
     print("Optimal solution is:", config.best_embeddings)
@@ -663,3 +716,9 @@ if __name__ == '__main__':
                 pass
         elif user_input is '5':
             get_min_hops(1)
+        elif user_input is '6':
+            frm = input('Enter src : ')
+            if frm != '':
+                path, length = nx.dijkstra_path(config.wsn, source=int(frm), target=1, weight='weight')
+                print(length)
+                print(path)

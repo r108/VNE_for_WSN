@@ -3,6 +3,7 @@ from combinationIterator import CombinationIterator as ci
 start = 0.0
 online_flag = False
 #VN_l1 = nx.DiGraph()
+perm_counter = 0
 counter_value = 0
 total_operations = 0
 dijkstra_operations = 0
@@ -18,7 +19,15 @@ has_embedding = False
 
 recursion_counter = 0
 
-perms_list = []
+already_mapped_vnrs = {}
+current_perm = []
+previous_perm = []
+perm_prefix = []
+current_key_prefix = []
+vns_per_perm = {} #success/fail of each vnrs per perms
+perms_list = {} #store success/fail of vnrs for all perms
+prefix_length = []
+
 
 VWSNs = []  #feasible embeddings for each/current permutation
 all_embeddings = [] #list of embeddings for all permutations
@@ -36,7 +45,7 @@ reduced_adj = dict()
 link_weights = dict()
 two_hops = dict()
 
-vns_per_perm = []
+
 
 current_wsn = {}#nx.DiGraph()
 current_wsn_removed_edges = {}#nx.DiGraph()
