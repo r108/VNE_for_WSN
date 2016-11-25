@@ -13,8 +13,6 @@ from itertools import islice
 #import cProfile
 #import re
 
-wsn_substrate = WSN()
-exit_flag = True
 
 def display_data_structs():
     print("Nodes - ", config.wsn.nodes(data=True))
@@ -22,7 +20,7 @@ def display_data_structs():
     print("Adjacency list - ", config.wsn.adjacency_list())
     print("adjacencies- ", adjacencies)
     print("two_hops_list - ", two_hops_list)
-    print("link_weights- ", link_weights)
+ #   print("link_weights- ", link_weights)
 
 def update_all_links_attributes(wsn,plr, load):
     for u,v,d  in config.wsn.edges_iter(data=True):
@@ -30,7 +28,7 @@ def update_all_links_attributes(wsn,plr, load):
         wsn[u][v]['load'] = load
         link_weight = LinkCost(wsn[u][v]['plr'], wsn[u][v]['load'])
         wsn[u][v]['weight'] = link_weight.get_weight(link_weight)
-        link_weights[(u, v)] = link_weight.get_weight(link_weight)
+        #link_weights[(u, v)] = link_weight.get_weight(link_weight)
     #print(config.wsn.edges(data=True))
     #print("")
 
@@ -72,7 +70,7 @@ def on_line_vn_request():
         link_reqiurement = {'load': int(quota), 'plr': 40}
         vnr = (1000, VWSN_nodes, link_reqiurement)
         config.online_flag = True
-        embed(vnr)
+        embed(vnr,0,True)
     else:
         return
 
@@ -145,11 +143,14 @@ def check_node_constraints(nodes_in_path, required_load, wsn):
 def get_shortest_path(graph, frm, to):
     #modified the below file to return 2 parameters (path, length) instead of 1 path
     #/home/roland/anaconda3/lib/python3.5/site-packages/networkx/algorithms/shortest_paths/weighted.py
-#    path, length = nx.dijkstra_path(graph, source=frm, target=to, weight='weight')
+    #path, length = nx.dijkstra_path(graph, source=frm, target=to, weight='weight')
 #    length,path = nx.bidirectional_dijkstra(graph, source=frm, target=to, weight='weight')
     #length,path = nx.astar_path(graph, source=frm, target=to, heuristic=None, weight='weight')
-    length, path = nx.astar_path_length(graph, source=frm, target=to, heuristic=None, weight='weight')
-#    length = nx.dijkstra_path_length(graph, source=frm, target=to, weight='weight')
+    if config.sp_alg_str == "Dijkstra":
+        length, path = nx.bidirectional_dijkstra(graph, source=frm, target=to, weight='weight')
+    else:
+        length, path = nx.astar_path_length(graph, source=frm, target=to, heuristic=None, weight='weight')
+    #length = nx.dijkstra_path_length(graph, source=frm, target=to, weight='weight')
     #print('Shortest path weight is ',length)
     config.verify_operations += 1
     if (path is None) or (length >= 10000000):
@@ -449,18 +450,24 @@ def run_permutations():
         del config.vns_per_perm
         config.vns_per_perm = {}
         config.feasible = False
+
+        # this is probably not used ata all
         if i != 0:
-            config.previous_perm = list(config.current_perm)
+            config.previous_perm = list(config.current_perm) # memoized result of previous perm
         config.current_perm = []
+        #this could go into below for lop
         for idx, vnr in enumerate(per):
             config.total_operations += 1
             config.current_perm.append(vnr[1][0])
+
         config.current_key_prefix = []
         for idx, vnr in enumerate(per):
             current_success = True
             config.total_operations += 1
             config.current_key_prefix = config.current_key_prefix + [(idx, vnr[1][0])]
-            #check the state of the same reqest in the previous perm
+            #optmize work effort by avoiding to process known unfeasible sequence of requests
+            #check the state of the same reqest in the previous perm and if it has failed at a
+            #higher index/position then skip it
             if i > 0 and idx > 0:
                 previous_position = list(config.perms_list[i-1][vnr[1][0]].keys())[0]
                 success = config.perms_list[i - 1][vnr[1][0]].get(previous_position)
@@ -469,9 +476,11 @@ def run_permutations():
             if embed(vnr, idx, current_success):
                 current_success = config.feasible
             else:
-                previous_position = list(config.perms_list[i - 1][vnr[1][0]].keys())[0]
-                current_success = config.perms_list[i - 1][vnr[1][0]].get(previous_position)
-            config.vns_per_perm.update({vnr[1][0]: {idx: current_success }})
+                previous_position = list(config.perms_list[i-1][vnr[1][0]].keys())[0]
+                current_success = config.perms_list[i-1][vnr[1][0]].get(previous_position)
+            # memoize success/fail of current vnr
+            config.vns_per_perm.update({vnr[1][0]: {idx: current_success}})
+            #memoize the ordered subsets for each sequence up to the n-2 left most positions
             if idx < len(per) -2:
                memoize_perms()
             #print(config.vns_per_perm)
@@ -493,7 +502,7 @@ def run_permutations():
     end = time.time()
     print(end - config.start)
     print("Optimal solution is:", config.best_embeddings)
-    print("dijkstra # operation:", config.dijkstra_operations)
+    print(config.sp_alg_str," # operation:", config.dijkstra_operations)
     print("link_penalise # operation:", config.link_penalize_operations)
     print("verify_operations # operation:", config.verify_operations)
     print("other mapping # operation:", config.total_operations)
@@ -665,15 +674,29 @@ def get_min_hops(sink):
     return min_hops
 
 if __name__ == '__main__':
-    link_weights = wsn_substrate.get_link_weights()
+
+
+    plr = 1
+    adj_list = {1: [(2, plr), (5, plr)],
+                2: [(1, plr), (3, plr), (5, plr)],
+                3: [(2, plr), (4, plr)],
+                4: [(3, plr), (5, plr)],
+                5: [(4, plr), (2, plr), (1, plr)]}
+
+    wsn_substrate = WSN(config.X, config.Y, adj_list)
+    exit_flag = True
+
+    #config.main_sink = 109
+    #link_weights = wsn_substrate.get_link_weights()
     #adjacencies = wsn_substrate.get_adjacency_list()
     adjacencies = wsn_substrate.get_wsn_substrate().adjacency_list()
     config.wsn = wsn_substrate.get_wsn_substrate()
     two_hops_list = wsn_substrate.get_two_hops_list()
     conflicting_links_dict = wsn_substrate.get_conflicting_links()
-    min_hops_dict = get_min_hops(1)
-    update_all_links_attributes(config.wsn,1, 1)
+    min_hops_dict = get_min_hops(config.main_sink)
+#    update_all_links_attributes(config.wsn,1, 1)
     shortest_path, path_nodes = [],[]
+    config.committed_wsn = nx.DiGraph(config.wsn)
     vis.display_edge_attr(config.wsn)
     vis.display_node_attr(config.wsn)
     display_data_structs()
@@ -684,6 +707,11 @@ if __name__ == '__main__':
         print("\n---->\n0 - Run permutations\n1 - Embed single VNR\n2 - Plot\n3 - Show wsn resources\n4 - Show/Remove active VNs\n5 - Min hops")
         user_input = input(':')
         if user_input is '0':
+            print("1 - use Dijkstra\n2 - use A*")
+            if input(":") == '1':
+                config.sp_alg_str = "Dijkstra"
+            else:
+                config.sp_alg_str = "A*"
             run_permutations()
         elif user_input is '1':
             on_line_vn_request()
@@ -719,6 +747,26 @@ if __name__ == '__main__':
         elif user_input is '6':
             frm = input('Enter src : ')
             if frm != '':
-                path, length = nx.dijkstra_path(config.wsn, source=int(frm), target=1, weight='weight')
-                print(length)
-                print(path)
+                #path, length = nx.dijkstra_path(config.wsn, source=int(frm), target=1, weight='weight')
+                #print(length)
+                #print(path)
+                grid = nx.grid_2d_graph(int(frm),int(frm))
+                adj_grid = {}
+                #for i,n,
+                print(grid.adjacency_list())
+                d_nodes = {}
+                d_adj = {}
+                print(grid.nodes())
+                print(grid.edges())
+                for idx,(r,c) in enumerate(grid.nodes()):
+                    d_nodes.update({str((r,c)):idx+1})
+                print(d_nodes.items())
+                for idx, ajd in enumerate(grid.adjacency_list()):
+                    print(idx,ajd)
+                    n_adj = []
+                    for r,c in ajd:
+                        n = d_nodes[str((r,c))]
+                        n_adj.append(n)
+                    d_adj.update({idx:n_adj})
+                print(d_adj.items())
+                #print(wsn_substrate.get_adjacency_list().items())

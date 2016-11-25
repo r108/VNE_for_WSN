@@ -1,5 +1,6 @@
 import networkx as nx
 import copy
+from link_weight import LinkCost
 
 class WSN():
 
@@ -8,10 +9,16 @@ class WSN():
     __adj_list = dict()
     __two_hops_list = dict()
     __conflicting_links = dict()
+    __positions = dict()
 
 
-    def __init__(self):
-        self.init_wsn_substrate(self.get_adjacency_list())
+    def __init__(self,n,m, init_adj_list):
+        #self.convert_to_adj_list(n,m)
+
+        ##replaces the old substrate init and parses the new adjacency list format with the plr
+        self.__adj_list  = self.parse_init_adj_list(init_adj_list)
+
+        #self.init_wsn_substrate(self.get_adjacency_list())
         self.init_two_hop_neighborhood(self.get_adjacency_list())
         self.init_conflicting_links(self.get_adjacency_list())
 
@@ -29,6 +36,21 @@ class WSN():
         return self.__two_hops_list
 
     def init_two_hop_neighborhood(self, adj_list):
+        print(adj_list)
+        for n in adj_list:
+            print("n",n)
+            items = adj_list.get(n)
+            if_list = []
+            if_list.extend(items)
+            for i in items:
+                print("items",items)
+                print("i", i)
+                print("adj_list.get(i)",adj_list.get(i))
+                if_list.extend(adj_list.get(i))
+            self.__two_hops_list[n] = list(set([x for x in if_list if x != n]))
+        #print("Interferences ",self.__two_hops_list)
+
+    def init_two_hop_neighborhood1(self, adj_list):
         for n in adj_list:
             items = adj_list.get(n)
             if_list = []
@@ -36,7 +58,7 @@ class WSN():
             for i in items:
                 if_list.extend(adj_list.get(i))
             self.__two_hops_list[n] = list(set([x for x in if_list if x != n]))
-        #print("Interferences ",self.__two_hops_list)
+        # print("Interferences ",self.__two_hops_list)
 
     def calculate_conflicting_links(self, path_nodes):
         self.__adj_list
@@ -96,21 +118,38 @@ class WSN():
             self.__conflicting_links.update({node:neighbor_conflict})
         print("__conflicting_links",self.__conflicting_links)
 
-    def init_wsn_substrate(self, links):
-        adj_list = links
-        for n in adj_list:
-            self.__WSN_Substrate.add_node(n, {'rank':1, 'load':1})
-            items = adj_list.get(n)
-            for i in items:
-                self.__WSN_Substrate.add_edge(n,i, {'plr':1, 'load':1, 'weight':1})
-                self.__link_weights[(n,i)] = 1
+
+#    def init_wsn_substrate(self, adj_list):
+#        for n in adj_list:
+#            self.__WSN_Substrate.add_node(n, {'rank':1, 'load':1})
+#            items = adj_list.get(n)
+#            for i in items:
+#                self.__WSN_Substrate.add_edge(n,i, {'plr':1, 'load':1, 'weight':1})
+#                self.__link_weights[(n,i)] = 1
+
+
+    def parse_init_adj_list(self, init_adj_list):
+        adj_list = {}
+        for node in init_adj_list:
+            print(node)
+            self.__WSN_Substrate.add_node(node, {'rank': 1, 'load': 1})
+            neighbor_list = []
+            for neighbor in init_adj_list.get(node):
+                link_weight = LinkCost(neighbor[1], 1)
+                self.__WSN_Substrate.add_edge(node, neighbor[0], {'plr': neighbor[1], 'load': 1, 'weight': link_weight.get_weight(link_weight)})
+                #self.__link_weights[(n, neighbor)] = 1
+                neighbor_list.append(neighbor[0])
+            print(neighbor_list)
+            adj_list.update({node: neighbor_list})
+        # print("adj_list",adj_list)
+        return adj_list
 
 
     def update_adj_list(self, adj_list):
         self.__adj_list = adj_list
 
     def get_adjacency_list(self):
-        self.__adj_list = {1: [2, 9],
+        adj_list = {1: [2, 9],
          2: [1, 3, 10],
          3: [2, 4, 11],
          4: [3, 5, 12],
@@ -166,6 +205,10 @@ class WSN():
         54:[46, 53, 55],
         55:[47, 54, 56],
         56:[48, 55],}
+
+        #self.__adj_list = adj_list
+        #print("adj",adj_list.items())
+        #self.__adj_list = self.convert_to_adj_list(10,10)
         return self.__adj_list
 
 
@@ -228,18 +271,51 @@ class WSN():
         55:(3,3),
         56:(3,3.5)}
 
-        return position
+        self.__positions = position
+        return self.__positions
+
+
+
+    def convert_to_adj_list(self,n,m):
+        grid = nx.grid_2d_graph(int(n), int(m))
+        d_nodes = {}
+        d_adj = {}
+        for idx, (r, c) in enumerate(grid.nodes()):
+            d_nodes.update({str((r, c)): idx+1})
+            self.__positions.update({idx+1:(r*5, c*5)})
+        #print(d_nodes.items())
+        for idx, ajd in enumerate(grid.adjacency_list()):
+            n_adj = []
+            for r, c in ajd:
+                n = d_nodes[str((r, c))]
+                n_adj.append(n)
+            d_adj.update({idx+1: n_adj})
+        self.__adj_list = d_adj
+        return d_adj
+
+
+
+
+
 
 if __name__ == '__main__':
-    wsn = WSN()
+
+    plr = 1
+    adj_list = {1: [(2, plr), (5, plr)],
+                2: [(1, plr), (3, plr), (5, plr)],
+                3: [(2, plr), (4, plr)],
+                4: [(3, plr), (5, plr)],
+                5: [(4, plr), (2, plr), (1, plr)]}
+
+
+    wsn = WSN(2,3,adj_list)
     print()
     network = wsn.get_wsn_substrate()
     print(network.edge[1][2]['load'])
-    print(network[1][9]['weight'])
+    print(network[1][5]['weight'])
     print(network.node[1])
     print(network.node[2]['load'])
-    print(network[9])
-    print(network[26][34])
+    print(network[5])
 
 
     print("wsn.get_wsn_substrate().nodes(data=True):",wsn.get_wsn_substrate().nodes(data=True))

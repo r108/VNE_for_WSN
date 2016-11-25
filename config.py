@@ -17,8 +17,13 @@ failed_links_list = []
 feasible = False
 has_embedding = False
 
-recursion_counter = 0
 
+X = 0
+Y = 0
+recursion_counter = 0
+sp_algorithm = 2
+sp_alg_str = "A*"
+main_sink = 1
 already_mapped_vnrs = {}
 current_perm = []
 previous_perm = []

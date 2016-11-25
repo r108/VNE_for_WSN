@@ -90,7 +90,6 @@ def generate_plot(G,shortest_path, path,plt,weight_flag):
     #fixed_positions = dict((n,d) for n,d in fixed_positions if n in G.nodes(data=False))
 
     fixed_nodes = fixed_positions.keys()
-
     # elarge=[(u,v) for (u,v,d) in G.edges(data=True) if d['weight'] >1200]
     esmall = [(u, v) for (u, v, d) in G.edges(data=True)]  # if d['weight'] <=1200]
     if weight_flag == True:
@@ -104,7 +103,7 @@ def generate_plot(G,shortest_path, path,plt,weight_flag):
     # nodes
 
     nx.draw_networkx_nodes(G, pos, ax=plt, node_size=300, node_color=colors)
-    print("G_source.nodes",G_source.nodes(data=True))
+    #print("G_source.nodes",G_source.nodes(data=True))
     nx.draw_networkx_nodes(G_source, pos, ax=plt, node_size=500, node_color='y')
     nx.draw_networkx_nodes(G_sink, pos, ax=plt, node_size=600, node_color='b')
     # edges
@@ -122,7 +121,7 @@ def generate_plot(G,shortest_path, path,plt,weight_flag):
 def draw_graph():
     for k, v in config.best_embeddings.items():
         index = v['permutation']
-        print("index", index)
+        #print("index", index)
         for vn in config.active_vns:
             VN_links = vn[1]
             shortest_p = vn[2]
@@ -156,4 +155,5 @@ def plotit(VN_links, shortest_path, path_nodes, index):
         #generate_plot(wsn, shortest_path, [], plt1, True)
     config.plot_counter += 1
     plt.axis('on')
-    plt.savefig(str(index)+"graph_" + str(config.plot_counter) + ".png")  # save as png
+    #plt.savefig(str(index)+"graph_" + str(config.plot_counter) + ".png")  # save as png
+    plt.savefig(str(index)+"graph_" + str(config.plot_counter) + ".svg", format='svg')
