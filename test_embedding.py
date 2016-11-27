@@ -14,6 +14,8 @@ import visualize as vis
 from itertools import islice
 import pickle
 
+
+
 def display_data_structs():
     print("Nodes - ", config.wsn.nodes(data=True))
     print("Edges - ", config.wsn.edges(data=True))
@@ -198,6 +200,19 @@ def check_frm_to_links(wsn,node,link_requirement):
     return True
 
 
+def check_link_reliability_constraints(shortest_path, required_reliability,wsn):
+    link_list = []
+    if shortest_path is not None:
+        for u,v in shortest_path:
+            link_list.append(wsn[u][v]['plr'])
+        path_reliability = reduce(lambda x, y: x * y, link_list)
+        if path_reliability < required_reliability:
+            #print ("shortest_path",shortest_path)
+            #print ("required_reliability",required_reliability)
+            #print ("required_reliability",path_reliability)
+            return False
+        return True
+
 
 def verify_feasibility(link_requirement, frm, to, node_requirement):
     config.verify_operations += 1
@@ -225,9 +240,9 @@ def verify_feasibility(link_requirement, frm, to, node_requirement):
             #print("Failed!",frm,to," cannot support request\nEMBEDDING FAILED!")
             return False
     shortest_path, path_nodes = get_shortest_path(config.current_wsn, frm, to)
-##  if not check_link_reliability_constraints(shortest_path,link_requirement['plr'],wsn) #need to fix 1 hop paths
-    #   print("Link reliability fails!\nEMBEDDING HAS FAILED!")
-        #return False
+    if not check_link_reliability_constraints(shortest_path,link_requirement['plr'],wsn): #need to fix 1 hop paths
+        #print("Link reliability fails!\nEMBEDDING HAS FAILED!")
+        return False
 
     if shortest_path is None:
         #print("No feasible path!\nEMBEDDING HAS FAILED!")
@@ -820,13 +835,14 @@ def reinitialize():
 
 if __name__ == '__main__':
 
-    input_file_name = 'tests/input_vector_50.pickle'
+    input_file_name = 'tests/input_vector_100.pickle'
     test_vectors = pickle.load(open(input_file_name, 'rb'))
     for test_case in test_vectors:
         config.nwksize = test_case['nwksize']
         config.numvn = test_case['numvn']
         #if config.numvn == 7:
         config.iteration = test_case['iteration']
+        print (config.nwksize, config.numvn, config.iteration)
         #if config.iteration == 67:
         vnrs_list = []
         for vnrs in test_case['vnlist']:
