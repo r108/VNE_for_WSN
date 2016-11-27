@@ -1,6 +1,6 @@
 import networkx as nx
 from combinationIterator import CombinationIterator as ci
-
+from wsn_substrate import WSN
 #Output, first three copied from input vector
 nwksize = 0
 numvn = 0
