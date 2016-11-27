@@ -1,8 +1,25 @@
 import networkx as nx
 from combinationIterator import CombinationIterator as ci
+
+#Output, first three copied from input vector
+nwksize = 0
+numvn = 0
+iteration = 0
+# Following result from algorithm execution
+proc_time = 0.0
+#acceptance = config.max_accepted_vnr / config.numvn
+mapping = dict() #: dictionary vlink:[slinks],
+overall_cost = 0.0
+
+
+
+
+
+
+
+
 start = 0.0
 online_flag = False
-#VN_l1 = nx.DiGraph()
 perm_counter = 0
 counter_value = 0
 total_operations = 0
@@ -22,8 +39,8 @@ X = 0
 Y = 0
 recursion_counter = 0
 sp_algorithm = 2
-sp_alg_str = "A*"
-main_sink = 1
+sp_alg_str = "Dijkstra"
+main_sink = 0
 already_mapped_vnrs = {}
 current_perm = []
 previous_perm = []

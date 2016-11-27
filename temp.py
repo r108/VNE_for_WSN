@@ -550,10 +550,10 @@ def generate_output():
     try:
         with open(input_file_name+suffix,'a') as handle:
             pickle.dump(output_dict,handle)
+            file.close()
     except Exception as e:
         print (e)
         return -1
-    reinitialize()
     return 0
 
 def show_penalized_links():
@@ -805,7 +805,13 @@ if __name__ == '__main__':
             vnrs_list.append(vnrs.convert_to_heuristic())
         print (vnrs_list)
         print(config.iteration)
-
+        if config.iteration > 0:
+            if generate_output() == 0:
+                reinitialize()
+            else:
+                print("Something went wrong!!")
+                if input(":") == 1:
+                    pass
         generated_wsn = test_case['substrate'].output_for_heuristic()
         wsn_substrate = WSN(config.X,config.Y,generated_wsn)
 
