@@ -6,6 +6,7 @@ class WSN():
 
     __WSN_Substrate = nx.DiGraph()
     __link_weights = dict()
+    __link_quality = dict()
     __adj_list = dict()
     __two_hops_list = dict()
     __conflicting_links = dict()
@@ -28,6 +29,9 @@ class WSN():
 
     def get_conflicting_links(self):
         return self.__conflicting_links
+
+    def get_link_quality(self):
+        return self.__link_quality
 
     def get_link_weights(self):
         return self.__link_weights
@@ -95,7 +99,7 @@ class WSN():
                             #                        #print("add if nn not in []", visited_nodes)
                             effected_edges.append((n, nn))
                     visited_nodes.append(n)
-                    #                #print(n, "appended to visited nodes in rx", visited_nodes)
+                    #                #print(n, "appended to visited nodes in rx", visited_nodes)##
             effected_edges_set = list(set(effected_edges))
             return effected_edges, effected_edges_set
 
@@ -129,6 +133,7 @@ class WSN():
 
     def parse_init_adj_list(self, init_adj_list):
         adj_list = {}
+        link_quality = {}
         for node in init_adj_list:
            # print(node)
             self.__WSN_Substrate.add_node(node, {'rank': 1, 'load': 1})
@@ -136,10 +141,12 @@ class WSN():
             for neighbor in init_adj_list.get(node):
                 link_weight = LinkCost(neighbor[1], 1)
                 self.__WSN_Substrate.add_edge(node, neighbor[0], {'plr': neighbor[1], 'load': 1, 'weight': link_weight.get_weight(link_weight)})
+                link_quality.update({(node, neighbor[0]):neighbor[1]})
                 #self.__link_weights[(n, neighbor)] = 1
                 neighbor_list.append(neighbor[0])
             #print(neighbor_list)
             adj_list.update({node: neighbor_list})
+        self.__link_quality = sorted(link_quality.items(), key=lambda x:x[1])
         # print("adj_list",adj_list)
         return adj_list
 
