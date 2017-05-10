@@ -14,7 +14,8 @@ import visualize as vis
 from itertools import islice
 import pickle
 import copy
-
+import multiprocessing as mp
+import math
 
 def display_data_structs():
     print("Nodes - ", config.wsn.nodes(data=True))
@@ -24,9 +25,8 @@ def display_data_structs():
     print("two_hops_list - ", two_hops_list)
     #   print("link_weights- ", link_weights)
 
-
 def update_all_links_attributes(wsn, plr, load):
-    for u, v, d in config.wsn.edges_iter(data=True):
+    for u, v, d in wsn.edges_iter(data=True):
         wsn[u][v]['plr'] = plr
         wsn[u][v]['load'] = load
         link_weight = LinkCost(wsn[u][v]['plr'], wsn[u][v]['load'])
@@ -35,9 +35,8 @@ def update_all_links_attributes(wsn, plr, load):
         # print(config.wsn.edges(data=True))
         # print("")
 
-
-def update_node_attribs(nodes, node, load):
-    for n, d in nodes.nodes_iter(data=True):
+def update_node_attribs(wsn, node, load):
+    for n, d in wsn.nodes_iter(data=True):
         config.total_operations += 1
         if n == int(node):
             d['load'] = d['load'] + int(load)
@@ -59,7 +58,6 @@ def update_link_attribs(wsn, u, v, plr, load):
     wsn[u][v]['weight'] = link_weight.get_weight(link_weight)
     return current_link_weight.get_weight(current_link_weight)
 
-
 def on_line_vn_request():
     source = input(" source node: ")
     if source != "":
@@ -80,7 +78,6 @@ def on_line_vn_request():
     else:
         return
 
-
 def map_links_cost(e_list, e_set, link_requirement, wsn):
     link_embedding_cost = 0
     current_weight = 0
@@ -92,7 +89,6 @@ def map_links_cost(e_list, e_set, link_requirement, wsn):
         link_embedding_cost += (required * wsn[u][v]['plr'])
     return link_embedding_cost
 
-
 def map_nodes_cost(all_path_nodes, required_load, wsn):
     node_embedding_cost = 0
     for idx, pn in enumerate(all_path_nodes):
@@ -101,7 +97,6 @@ def map_nodes_cost(all_path_nodes, required_load, wsn):
         node_embedding_cost += (required_load)
     return node_embedding_cost
 
-
 def commit(VN_nodes, VN_links, node_requirement, link_requirement, e_list, e_list2, path_nodes, shortest_path, wsn):
     config.total_operations += 1
     n_cost = map_nodes_cost(VN_nodes.nodes(), node_requirement, wsn)
@@ -109,7 +104,7 @@ def commit(VN_nodes, VN_links, node_requirement, link_requirement, e_list, e_lis
     #    cost = (n_cost+l_cost) #node costs are not used by Victor
     cost = l_cost
     current_vn = (VN_nodes, VN_links, shortest_path, path_nodes, cost, path_nodes[0])
-    config.VWSNs.append(current_vn)
+#    config.VWSNs.append(current_vn) #returned to verify_feasibility
     if config.online_flag:
         vis.display_edge_attr(config.committed_wsn)
         vis.display_node_attr(config.committed_wsn)
@@ -117,8 +112,9 @@ def commit(VN_nodes, VN_links, node_requirement, link_requirement, e_list, e_lis
         vis.display_vn_edge_allocation(VN_links)
         vis.plotit(VN_links, shortest_path, path_nodes, 0)
         config.active_vns.append(current_vn)
-    config.current_emb_costs.update({path_nodes[0]: cost})
-    config.overall_cost += cost
+#    config.current_emb_costs.update({path_nodes[0]: cost}) #returned to verify_feasibility
+#    config.overall_cost += cost #returned to verify_feasibility
+    return current_vn, {path_nodes[0]: cost}, cost
 
 
 def check_link_reliability_constraints(shortest_path, required_reliability, wsn):
@@ -476,6 +472,7 @@ def evaluate_perms(current_perm):
     for k, v in current_perm[keys[0]]['embeddings'].items():
         config.total_operations += 1
         source_nodes.append(k)
+
     if len(config.best_embeddings) != 0:
         config.total_operations += 1
         if config.max_accepted_vnrs < len(source_nodes):
@@ -525,19 +522,166 @@ def memoize_perms():
             'overall_cost': int(config.overall_cost)}})
 
 
+def generate_independent_perm_blocks(vnrs_list):
+    perms = tuple(itool.permutations(vne.get_vnrs(vnrs_list), r=None))
+    vnrs_size = len(vne.get_vnrs(vnrs_list))
+    start_indx = 0
+    idx_increm = math.factorial(vnrs_size - 1)
+    jobs = []
+    for v in range(0, vnrs_size):
+        end_indx = start_indx + idx_increm
+        independent_perm_block = itool.islice(perms, start_indx, end_indx)
+        start_indx = end_indx
+        jobs.append(mp.Process(target=process_independent_perm_block, args=((independent_perm_block),)) )
+
 def run_permutations(vnrs_list):
+    config.online_flag = False
+    config.start = time.time()
     print("vne.get_vnrs(vnrs_list)", vne.get_vnrs(vnrs_list))
-
-    perms = itool.permutations(vne.get_vnrs(vnrs_list), r=None)
-    print("type", type(perms.__iter__()))
-
-    print ("perms", perms.__iter__())
+    perms = tuple(itool.permutations(vne.get_vnrs(vnrs_list), r=None))
     for i, per in enumerate(perms):
-        print ("per", per)
-        print("Permutation ", i)
-        print ("length", len(per))
+        print ""
+        time.sleep(.01)
+    vnrs_size = len(vne.get_vnrs(vnrs_list))
+    print "size",vnrs_size
+    start_indx = 0
+    idx_increm = math.factorial(vnrs_size-1)
+    jobs = []
+    for v in range(0, vnrs_size):
+        end_indx = start_indx + idx_increm
+        print("-start", start_indx, "incr", idx_increm, "end", end_indx)
+        independent_perm_block = itool.islice(perms, start_indx,end_indx)
+        start_indx = end_indx
+        print("start",start_indx,"incr",idx_increm,"end",end_indx)
+#        independent_perm_block = tuple(perms[start_indx:end_indx])
+#        independent_perm_block = ((perms,))
+        #print "independent_perm_block",independent_perm_block
+
+        jobs.append(mp.Process(target=process_independent_perm_block, args=((independent_perm_block,)) ) )
+        #process_independent_perm_block(independent_perm_block)
+
+    for j in jobs:
+        j.start()
+    for j in jobs:
+        j.join()
+    # vis.display_edge_attr(config.committed_wsn)
+    # vis.display_node_attr(config.committed_wsn)
+    # display_data_structs()
+    # print()
+    # print("All feasible embddings:", config.all_embeddings)
+    # print("All embedding costs:", config.embedding_costs)
+    print("perm_counter", config.perm_counter)
+    end = time.time()
+    config.proc_time = (end - config.start)
+    print(config.proc_time)
+    print("Optimal solution is:", config.best_embeddings)
+    #    print(config.sp_alg_str," # operation:", config.dijkstra_operations)
+    print("link_penalise # operation:", config.link_penalize_operations)
+    #    print("verify_operations # operation:", config.verify_operations)
+    #    print("other mapping # operation:", config.total_operations)
+    config.total_operations = config.verify_operations + config.dijkstra_operations + config.total_operations + config.link_penalize_operations
+    #    print("total # operation:", config.total_operations)
+    config.acceptance = config.max_accepted_vnrs
+    generate_output()
+
+
+
+
+
+    if size_of_accepted_vnrs > config.max_accepted_vnrs:
+        config.best_embeddings.update({str(source_nodes): {'overall_cost': float(overall_cost), 'permutation': keys[0]}})
+        config.max_accepted_vnrs = size_of_accepted_vnrs
+        del config.committed_wsn
+        config.committed_wsn = nx.DiGraph(config.wsn_for_this_perm)
+        del config.active_vns
+        config.active_vns = list(config.VWSNs)
+    elif size_of_accepted_vnrs == config.max_accepted_vnrs and size_of_accepted_vnrs != 0 :
+        current_key = list(config.best_embeddings.keys())
+        best_cost = float(config.best_embeddings[current_key[0]]['overall_cost'])
+        if best_cost > overall_cost:
+            config.best_embeddings.pop(current_key[0], 0)
+            config.best_embeddings.update({str(source_nodes): {'overall_cost': float(overall_cost), 'permutation': keys[0]}})
+            del config.committed_wsn
+            config.committed_wsn = nx.DiGraph(config.wsn_for_this_perm)
+            del config.active_vns
+            config.active_vns = list(config.VWSNs)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def process_independent_perm_block(independent_perm_block):
+    print "perms independent_perm_block", independent_perm_block
+    vns_per_perm = {}
+    for i, per in enumerate(independent_perm_block):
+        print "++++++++++++++++++++++++++++++++++++++++++per",per
+        print "per type", type(per)
+        print "permsss",per[0]
+
+#        del config.wsn_for_this_perm
+        config.wsn_for_this_perm = nx.DiGraph(config.wsn)
+        del config.VWSNs
+        config.VWSNs = []
+        config.current_emb_costs = {}
+        del config.overall_cost
+        config.overall_cost = 0
+        del vns_per_perm
+        vns_per_perm = {}
+        config.feasible = False
+
+        config.current_key_prefix = []
         for idx, vnr in enumerate(per):
-            print vnr
+            current_success = True
+            config.total_operations += 1
+            print("vnr",vnr)
+            config.current_perm.append(vnr[1][0])
+            config.current_key_prefix = config.current_key_prefix + [(idx, vnr[1][0])]
+#            config.current_key_prefix.extend([(idx, vnr[1][0])])
+
+            # optmize work effort by avoiding to process known unfeasible sequence of requests
+            # check the state of the same reqest in the previous perm and if it has failed at a
+            # higher index/position then skip it
+            if i > 0 and idx > 0:
+                # print("config.perms_list",config.perms_list)
+                previous_position = list(config.perms_list[i - 1][vnr[1][0]].keys())[0]
+                success = config.perms_list[i - 1][vnr[1][0]].get(previous_position)
+                if previous_position < idx and success is False:
+                    current_success = False
+            if embed(vnr, idx, current_success):
+                current_success = config.feasible
+            else:
+                previous_position = list(config.perms_list[i - 1][vnr[1][0]].keys())[0]
+                current_success = config.perms_list[i - 1][vnr[1][0]].get(previous_position)
+            # memoize success/fail of current vnr
+            vns_per_perm.update({vnr[1][0]: {idx: current_success}})
+            # memoize the ordered subsets for each sequence up to the n-2 left most positions
+            if idx < len(per) - 2:
+                memoize_perms()
+                # print(config.vns_per_perm)
+                # print(config.perms_list)
+        if i > 1:
+            config.perms_list.pop(i - 2)
+        config.perms_list.update({i: vns_per_perm})
+        current_perm = {i: {'embeddings': config.current_emb_costs, 'overall_cost': config.overall_cost}}
+        #        config.embedding_costs.update(current_perm)
+        #        config.all_embeddings.append(config.VWSNs)
+        evaluate_perms(current_perm)
+
+
 
 
 def run_permutations_(vnrs_list):
@@ -568,9 +712,9 @@ def run_permutations_(vnrs_list):
         config.feasible = False
 
         # this is probably not used ata all
-        if i != 0:
-            config.previous_perm = list(config.current_perm)  # memoized result of previous perm
-        config.current_perm = []
+#        if i != 0:
+#            config.previous_perm = list(config.current_perm)  # memoized result of previous perm
+#        config.current_perm = []
         # this could go into below for loop
         # for idx, vnr in enumerate(per):
         # config.total_operations += 1
@@ -582,7 +726,7 @@ def run_permutations_(vnrs_list):
             # pass
             current_success = True
             config.total_operations += 1
-            config.current_perm.append(vnr[1][0])
+ #           config.current_perm.append(vnr[1][0])
             config.current_key_prefix = config.current_key_prefix + [(idx, vnr[1][0])]
             # optmize work effort by avoiding to process known unfeasible sequence of requests
             # check the state of the same reqest in the previous perm and if it has failed at a
@@ -981,7 +1125,7 @@ def reinitialize():
     # Following result from algorithm execution
     config.proc_time = 0.0
     # config.acceptance = config.max_accepted_vnr / config.numvn
-    config.mapping = dict()  #: dictionary vlink:[slinks],
+#    config.mapping = dict()  #: dictionary vlink:[slinks],
     # objective = config.overall_cost
     config.start = 0.0
     config.online_flag = False
@@ -1007,7 +1151,7 @@ def reinitialize():
     config.main_sink = 0
     config.already_mapped_vnrs = {}
     config.current_perm = []
-    config.previous_perm = []
+#    config.previous_perm = []
     config.perm_prefix = []
     config.current_key_prefix = []
     config.vns_per_perm = {}  # success/fail of each vnrs per perms
@@ -1077,8 +1221,8 @@ def write_to_File():
 
 
 if __name__ == '__main__':
-    dir_path = 'tests/'
-    input_file_name = 'input_vector_150.pickle'
+    dir_path = 'tests/50/'
+    input_file_name = 'input_vector_50_7.pickle'
     test_vectors = pickle.load(open(dir_path + input_file_name, 'rb'))
     for test_case in test_vectors:
         if test_case['iteration'] < 3:
@@ -1117,8 +1261,8 @@ if __name__ == '__main__':
             # vis.display_node_attr(config.wsn)
             # display_data_structs()
 
-            config.sp_alg_str = "A*"
-            # config.sp_alg_str = "Dijkstra"
+            #config.sp_alg_str = "A*"
+            config.sp_alg_str = "Dijkstra"
             run_permutations(vnrs_list)
 # write_to_File()
 

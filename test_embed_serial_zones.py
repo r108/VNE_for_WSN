@@ -1,4 +1,4 @@
-## This version uses the old/original version of dictionary and functions to evaluate results
+## This version uses the new version of dictionary and functions (same as in test_embed_parallel2.py) to evaluate results
 
 #from __future__ import print_function
 #import ast
@@ -226,7 +226,7 @@ def check_frm_to_links(wsn,node,link_requirement):
     return True
 
 def verify_feasibility(link_requirement, frm, to, node_requirement):
-    #print("verify")
+#    print("verify")
     config.verify_operations += 1
     config.counter_value = config.counter_value+1
     hops = min_hops_dict.get((frm,to))
@@ -314,22 +314,6 @@ def get_conflicting_links(path_nodes):
     return effected_edges, effected_edges_set
 
 '''
-def get_conflicting_links(path_nodes):
-    config.verify_operations += 1
-    tx_nodes = list(path_nodes)
-    tx_nodes.pop()
-    effected_edges = []
-    for i, rx in enumerate(path_nodes):
-        config.verify_operations += 1
-        if i != 0:
-            effected_edges.extend(conflicting_links_dict[path_nodes[i-1]][rx])
-
-    effected_edges_set = list(set(effected_edges))
-    print("effected_edges",sorted(effected_edges))
-    print("effected_edges_set",sorted(effected_edges_set))
-    return effected_edges, effected_edges_set
-'''
-'''
 ##This was re-implemented in wsn_substrate.py to pre-compute it before the algorithm runs
 def get_conflicting_links__(path_nodes):
 #    tx_nodes = copy.deepcopy(path_nodes)
@@ -381,7 +365,7 @@ def get_conflicting_links__(path_nodes):
 '''
 
 def embed(vnr,idx,prev_success):
-    #print("BEGIN VNR EMBEDDING", vnr)
+#    print("BEGIN VNR EMBEDDING", vnr)
     del config.two_hops
     config.two_hops = list(two_hops_list)
     del config.penalized_list
@@ -405,15 +389,16 @@ def embed(vnr,idx,prev_success):
     else:
         #check if same request has failed in previous perm at a higher position
         if not prev_success:
-            #print("if not prev_success return")
+#            print("if not prev_success return")
             return False
         #check if current sequence has been memoized
         if str(config.current_key_prefix) in config.already_mapped_vnrs:
             config.wsn_for_this_perm = nx.DiGraph(config.already_mapped_vnrs[str(config.current_key_prefix)]['graph'])
-            config.current_emb_costs = dict(config.already_mapped_vnrs[str(config.current_key_prefix)]['embeddings'])    #.update({path_nodes[0]: cost})
-            config.overall_cost = int(config.already_mapped_vnrs[str(config.current_key_prefix)]['overall_cost'])
-            #print("config.already_mapped_vnrs",config.already_mapped_vnrs)
-            #print("str(config.current_key_prefix)",str(config.current_key_prefix))
+            config.current_perm_emb_costs = dict(config.already_mapped_vnrs[str(config.current_key_prefix)]['embeddings'])  # .update({path_nodes[0]: cost})
+            config.overall_cost = float(config.already_mapped_vnrs[str(config.current_key_prefix)]['overall_cost'])
+            config.best_embeddings = dict(config.already_mapped_vnrs[str(config.current_key_prefix)]['best_embeddings'])
+            config.VWSNs = list(config.already_mapped_vnrs[str(config.current_key_prefix)]['vwsns'])
+#            print("current sequence has been memoized return")
             return False
         del config.current_wsn
         config.current_wsn = nx.DiGraph(config.wsn_for_this_perm)
@@ -489,7 +474,7 @@ def evaluate_perms(current_perm):
         config.acceptance = config.max_accepted_vnrs
 
 #memoize and use already calculated sequences to eliminate duplicate work
-def memoize_perms():
+def memoize_perms_old():
     if len(config.prefix_length) < len(config.current_key_prefix):
         config.prefix_length.append(list(config.current_key_prefix))
         config.already_mapped_vnrs.update({str(config.current_key_prefix): {
@@ -502,6 +487,22 @@ def memoize_perms():
             'graph': nx.DiGraph(config.wsn_for_this_perm), 'embeddings': dict(config.current_emb_costs),
             'overall_cost': int(config.overall_cost)}})
 
+def memoize_perms():
+    #show_dataStructs("\nMEMOIZE_PERMS")
+    if len(config.prefix_length) < len(config.current_key_prefix):
+        config.prefix_length.append(list(config.current_key_prefix))
+        config.already_mapped_vnrs.update({str(config.current_key_prefix): {
+            'graph': nx.DiGraph(config.wsn_for_this_perm), 'embeddings': dict(config.current_perm_emb_costs),
+            'overall_cost': float(config.overall_cost), 'best_embeddings': dict(config.best_embeddings), 'vwsns': list(config.VWSNs)}})
+    elif config.prefix_length[len(config.current_key_prefix) - 1] != config.current_key_prefix:
+        config.already_mapped_vnrs.pop(str(config.prefix_length[len(config.current_key_prefix) - 1]))
+        config.prefix_length[len(config.current_key_prefix) - 1] = config.current_key_prefix
+        config.already_mapped_vnrs.update({str(config.current_key_prefix): {
+            'graph': nx.DiGraph(config.wsn_for_this_perm), 'embeddings': dict(config.current_perm_emb_costs),
+            'overall_cost': float(config.overall_cost), 'best_embeddings': dict(config.best_embeddings), 'vwsns': list(config.VWSNs)}})
+
+
+
 def run_permutations(vnrs_list):
     print("vne.get_vnrs(vnrs_list)", vne.get_vnrs(vnrs_list))
     config.online_flag = False
@@ -513,14 +514,15 @@ def run_permutations(vnrs_list):
     config.total_operations = 0
     config.dijkstra_operations = 0
     config.link_penalize_operations = 0
+    config.current_perm_block_best = {'acceptance': 0, 'overall_cost': 0.0, 'committed': None, 'mappings': None}
+    config.current_perm_block_results = {}  # stores final results for current perm block
+    config.current_perm_block_acceptance = 0  # max accepted vnrs for current perm block
+    config.current_perm_block_cost = 0.0  # max embedding cost for current perm block
+
     for i, per in enumerate(perms):
-        print "per", per
-        print "per type",type(per)
         config.total_operations += 1
         config.recursion_counter = 0
-
-        print "permsss",per[0]
-        print("Permutation ",i, "type",type(per[0]))
+        config.current_perm_results = {}
         del config.adjacencies_for_this_perm     #no need to recreate fix this
         config.adjacencies_for_this_perm = list(adjacencies) #no need to recreate fix this
         del config.wsn_for_this_perm
@@ -534,10 +536,6 @@ def run_permutations(vnrs_list):
         config.vns_per_perm = {}
         config.feasible = False
 
-        # this is probably not used ata all
-        if i != 0:
-            config.previous_perm = list(config.current_perm) # memoized result of previous perm
-        config.current_perm = []
         #this could go into below for loop
         #for idx, vnr in enumerate(per):
             #config.total_operations += 1
@@ -550,12 +548,6 @@ def run_permutations(vnrs_list):
             current_success = True
             config.total_operations += 1
 
-            print "idx", idx
-            print "vnr[0]", vnr[0]
-
-            print "vnr",vnr
-            print "vnr[1][0]",vnr[1][0]
-            config.current_perm.append(vnr[1][0])
             config.current_key_prefix = config.current_key_prefix + [(idx, vnr[1][0])]
             #optmize work effort by avoiding to process known unfeasible sequence of requests
             #check the state of the same reqest in the previous perm and if it has failed at a
@@ -584,7 +576,14 @@ def run_permutations(vnrs_list):
         current_perm = {i: {'embeddings': config.current_emb_costs, 'overall_cost': config.overall_cost}}
 #        config.embedding_costs.update(current_perm)
 #        config.all_embeddings.append(config.VWSNs)
-        evaluate_perms(current_perm)
+
+
+        config.current_perm_results.update({str(config.current_key_prefix): {'acceptance': int(len(config.VWSNs)),
+                                                                             'overall_cost': float(config.overall_cost),
+                                                                             'vwsns': list(config.VWSNs)}})
+
+        evaluate()
+        #evaluate_perms(current_perm)
     #vis.display_edge_attr(config.committed_wsn)
     #vis.display_node_attr(config.committed_wsn)
     #display_data_structs()
@@ -594,18 +593,39 @@ def run_permutations(vnrs_list):
     print("perm_counter",config.perm_counter)
     end = time.time()
     config.proc_time = (end - config.start)
-    print(config.proc_time)
-    print("Optimal solution is:", config.best_embeddings)
+    print("Optimal solution is:", "acceptance-", config.current_perm_block_best['acceptance'], "overall_cost-", config.current_perm_block_best['overall_cost'],
+          "processing_time-", config.proc_time)
+
+    #    print(config.proc_time)
+#    print("Optimal solution is:", config.best_embeddings)
 #    print(config.sp_alg_str," # operation:", config.dijkstra_operations)
-    print("link_penalise # operation:", config.link_penalize_operations)
+#    print("link_penalise # operation:", config.link_penalize_operations)
 #    print("verify_operations # operation:", config.verify_operations)
 #    print("other mapping # operation:", config.total_operations)
     config.total_operations = config.verify_operations + config.dijkstra_operations + config.total_operations + config.link_penalize_operations
 #    print("total # operation:", config.total_operations)
     config.acceptance = config.max_accepted_vnrs
-    generate_output()
+    generate_output(config.current_perm_block_best)
 #    current_vn = (VN_nodes, VN_links, shortest_path, path_nodes, cost, path_nodes[0])
 
+
+def evaluate():
+    perm_result = config.current_perm_results[config.current_perm_results.keys()[0]]
+    if config.current_perm_block_acceptance < perm_result['acceptance']:
+        config.current_perm_block_acceptance = perm_result['acceptance']
+        config.current_perm_block_cost = perm_result['overall_cost']
+        config.current_perm_block_best = {
+            'acceptance': perm_result['acceptance'],'overall_cost': perm_result['overall_cost'],
+            'committed': nx.DiGraph(config.wsn_for_this_perm), 'mappings':perm_result}
+        config.committed_wsn = nx.DiGraph(config.wsn_for_this_perm)
+    elif config.current_perm_block_acceptance == perm_result['acceptance']:
+        if config.current_perm_block_cost > perm_result['overall_cost']:
+            config.current_perm_block_cost = perm_result['overall_cost']
+            config.current_perm_block_best = {
+                'acceptance': perm_result['acceptance'], 'overall_cost': perm_result['overall_cost'],
+                'committed': nx.DiGraph(config.wsn_for_this_perm), 'mappings': perm_result}
+            config.committed_wsn = nx.DiGraph(config.wsn_for_this_perm)
+   #print "config.current_perm_block_best",config.current_perm_block_best
 
 
 def show_penalized_links():
@@ -918,13 +938,7 @@ def remove_vn(vn):
         update_node_attribs(config.committed_wsn,n,-(vn[0].node[n]['load']))
     return True
 
-##currently not used
-def get_k_shortest_paths(wsn,source,sink,k,weight=None):
-    k_paths = nx.shortest_simple_paths(wsn, source=source, target=sink, weight=weight)
-    k_paths = islice(k_paths, k)
-    #for p in k_paths:
-        #print(p)
-    return k_paths
+
 
 def get_min_hops(sink):
     config.reduced_adj = list(adjacencies)
@@ -1006,7 +1020,12 @@ def reinitialize():
     config.perm_indx = 0
 
 
-def generate_output():
+    config.current_perm_block_results = {}
+    config.current_perm_results = {}
+    config.current_test_best = {'acceptance':0,'overall_cost':0.0,'committed':None,'mappings':None}
+
+
+def generate_output_old():
     print ("generate_output")
     mapping_dictionary = dict()
     for vn in config.active_vns:
@@ -1030,8 +1049,30 @@ def generate_output():
     print "config.result_vectors",config.result_vectors
 
 
+def generate_output(best):
+    mapping_dictionary = dict()
+    vwsns = config.current_perm_results[config.current_perm_results.keys()[0]]['vwsns']
+    for vn in vwsns:
+        mapping_dictionary.update({(vn[5], config.main_sink): vn[1].edges()})
+    #mapping = mapping_dictionary
+    mapping = best['mappings']
+    acceptance_rate = float(best['acceptance']) / float(config.numvn)
+    output_dict = {
+        # First three copied from input vector
+        'nwksize': config.nwksize,
+        'numvn': config.numvn,
+        'iteration': config.iteration,
+        # Following result from algorithm execution
+        'proc_time': config.proc_time,
+        'acceptance': acceptance_rate,
+        'mapping': mapping,
+        'objective': best['overall_cost']
+    }
+    config.result_vectors.append(output_dict)
+#    print "config.result_vectors", config.result_vectors
+
 def write_to_File():
-    suffix = '_with_plr_A_'
+    suffix = '_zones'
     try:
         with open(dir_path + 'results/' + input_file_name + suffix, 'w') as handle:
             pickle.dump(config.result_vectors, handle)
@@ -1043,8 +1084,8 @@ def write_to_File():
     return 0
 
 if __name__ == '__main__':
-    dir_path = 'tests/'
-    input_file_name = 'input_vector_150.pickle'
+    dir_path = 'tests/50/'
+    input_file_name = 'input_vector_50_7.pickle'
     test_vectors = pickle.load(open(dir_path+input_file_name, 'rb'))
     for test_case in test_vectors:
 
@@ -1066,9 +1107,8 @@ if __name__ == '__main__':
         wsn_substrate = WSN(config.X,config.Y,generated_wsn)
         #print("@init",wsn_substrate.get_wsn_substrate().edges(data=True))
 
-        print("1 config.max_accepted_vnrs")
         config.max_accepted_vnrs=0
-        print config.max_accepted_vnrs
+
         exit_flag = True
         #config.main_sink = 109
         #link_weights = wsn_substrate.get_link_weights()
@@ -1090,74 +1130,3 @@ if __name__ == '__main__':
         run_permutations(vnrs_list)
     write_to_File()
 
-
-
-'''
-    while exit_flag is True:
-        print("\n---->\n0 - Run permutations\n1 - Embed single VNR\n2 - Plot\n3 - Show wsn resources\n4 - Show/Remove active VNs\n5 - Min hops")
-        user_input = input(':')
-
-            print("1 - use Dijkstra\n2 - use A*")
-            if input(":") == 1:
-                config.sp_alg_str = "Dijkstra"
-            else:
-                config.sp_alg_str = "A*"
-            run_permutations(vnrs_list)
-        elif user_input is '1':
-            on_line_vn_request()
-        elif user_input is '2':
-            vis.draw_graph()
-        elif user_input is '3':
-            vis.display_edge_attr(config.committed_wsn)
-            vis.display_node_attr(config.committed_wsn)
-            display_data_structs()
-            #print(config.committed_wsn.edge)
-            #print(config.current_wsn.edge)
-        elif user_input is '4':
-            active_vns = {}
-            for i,vn in enumerate(config.active_vns):
-                 active_vns.update({vn[3][0]:i})
-            print("Active VNs:", list(active_vns))
-            choice = input('Enter VN# to remove: ')
-            removed = False
-            if choice !='':
-                to_remove = active_vns.get(int(choice))
-                if to_remove is not None:
-                    vn = config.active_vns[to_remove]
-                    removed = remove_vn(vn)
-                if removed:
-                    config.active_vns.pop(to_remove)
-                    print("VN",to_remove,"was removed." )
-                else:
-                    print("VN", choice, "is not in active.")
-            else:
-                pass
-        elif user_input is '5':
-            get_min_hops(1)
-        elif user_input is '6':
-            frm = input('Enter src : ')
-            if frm != '':
-                #path, length = nx.dijkstra_path(config.wsn, source=int(frm), target=1, weight='weight')
-                #print(length)
-                #print(path)
-                grid = nx.grid_2d_graph(int(frm),int(frm))
-                adj_grid = {}
-                #for i,n,
-                print(grid.adjacency_list())
-                d_nodes = {}
-                d_adj = {}
-                print(grid.nodes())
-                print(grid.edges())
-                for idx,(r,c) in enumerate(grid.nodes()):
-                    d_nodes.update({str((r,c)):idx+1})
-                print(d_nodes.items())
-                for idx, ajd in enumerate(grid.adjacency_list()):
-                    print(idx,ajd)
-                    n_adj = []
-                    for r,c in ajd:
-                        n = d_nodes[str((r,c))]
-                        n_adj.append(n)
-                    d_adj.update({idx:n_adj})
-                print(d_adj.items())
-                #print(wsn_substrate.get_adjacency_list().items())
-'''

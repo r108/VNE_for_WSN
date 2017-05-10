@@ -1,9 +1,13 @@
+## the original working parallel version
 #from __future__ import#print_function
 #import ast
 #import cProfile
 #import re
 #import copy
-import itertools as itool
+
+import pp
+import config
+import itertools
 from wsn_substrate import WSN
 import networkx as nx
 from link_weight import LinkCost
@@ -14,7 +18,7 @@ import visualize as vis
 from itertools import islice
 import pickle
 import copy
-import multiprocessing as mp
+import multiprocessing
 import math
 
 def display_data_structs():
@@ -254,7 +258,7 @@ def generate_output(best):
     config.result_vectors.append(output_dict)
 
 def write_to_File():
-    suffix = '_with_plr_'
+    suffix = '_with_plr_4'
     try:
         with open(dir_path + 'results/' + input_file_name + suffix, 'w') as handle:
             pickle.dump(config.result_vectors, handle)
@@ -881,7 +885,7 @@ def reinitialize():
     config.wsn = {}  # the original instance of the initialized substrate graph
     config.active_vns = []  # copy of VWSNs, stores the list of embedded vns (used by generate_output to update mapping_dictionary)
 
-    config.sp_alg_str = "Dijkstra"  # identifies path finder algorithm used for test
+    #config.sp_alg_str = "Dijkstra"  # identifies path finder algorithm used for test
     config.main_sink = 0  # identifies sink node id used for test
     config.X = 0  # used to set graph dimensions manually
     config.Y = 0  # used to set graph dimensions manually
@@ -923,18 +927,17 @@ def reinitialize():
 
 
 def generate_independent_perm_blocks(vnrs_list, result_q):
-    perms = tuple(itool.permutations(vne.get_vnrs(vnrs_list), r=None))
+    perms = tuple(itertools.permutations(vne.get_vnrs(vnrs_list), r=None))
     vnrs_size = len(vne.get_vnrs(vnrs_list))
     start_indx = 0
     idx_increm = math.factorial(vnrs_size - 1)
-    for v in range(0, vnrs_size):
+    for v in range(0,1):# vnrs_size):
         config.total_operations += 1
         end_indx = start_indx + idx_increm
-        independent_perm_block = itool.islice(perms, start_indx, end_indx)
+        independent_perm_block = itertools.islice(perms, start_indx, end_indx)
         start_indx = end_indx
-        jobs.append(mp.Process(target=process_independent_perm_block, args=(independent_perm_block,result_q)) )
+        jobs.append(multiprocessing.Process(target=process_independent_perm_block, args=(independent_perm_block,result_q)) )
 #    jobs.append(mp.Process(target=process_independent_perm_block, args=(perms,result_q)) )
-
 
 def process_independent_perm_block(independent_perm_block,result_q):
     #show_dataStructs("\nPROCESS INDEPENDENT PERM BLOCK")
@@ -947,13 +950,15 @@ def process_independent_perm_block(independent_perm_block,result_q):
     config.best_embeddings = {}
     config.max_accepted_vnrs = 0
     config.active_vns = []  # ?
+
     for i, per in enumerate(perms):
+        #print i, "th permutation", multiprocessing.current_process()
         config.current_perm_results = {}  # stores final results for current perm (goes into current_perm_block_results)
         del config.wsn_for_this_perm
         config.wsn_for_this_perm = nx.DiGraph(config.wsn)
         del config.VWSNs
         config.VWSNs = []
-        del config.current_perm_emb_costs       # ?
+        del config.current_perm_emb_costs  # ?
         config.current_perm_emb_costs = dict()  # ?
         del config.overall_cost
         config.overall_cost = 0.0
@@ -982,8 +987,8 @@ def process_independent_perm_block(independent_perm_block,result_q):
                     current_success = False
             if embed(vnr, idx, current_success):
                 current_success = config.feasible
- #               if current_success == False:
- #                   config.current_perm_emb_costs.update({vnr[1][0]: 0.0})
+                #               if current_success == False:
+                #                   config.current_perm_emb_costs.update({vnr[1][0]: 0.0})
             else:
                 # get the position of current vnr in previous perm
                 previous_position = list(config.perms_list[i - 1][vnr[1][0]].keys())[0]
@@ -999,7 +1004,9 @@ def process_independent_perm_block(independent_perm_block,result_q):
         if i > 1:
             config.perms_list.pop(i - 2)
 
-        config.current_perm_results.update({str(config.current_key_prefix):{'acceptance':int(len(config.VWSNs)),'overall_cost': float(config.overall_cost),'vwsns':list(config.VWSNs)}})
+        config.current_perm_results.update({str(config.current_key_prefix): {'acceptance': int(len(config.VWSNs)),
+                                                                             'overall_cost': float(config.overall_cost),
+                                                                             'vwsns': list(config.VWSNs)}})
 
         config.perms_list.update({i: config.vns_per_perm})
         current_perm = {i: {'embeddings': config.current_perm_emb_costs, 'overall_cost': config.overall_cost}}
@@ -1117,12 +1124,15 @@ def select_best(perm_block_results):
 
 
 if __name__ == '__main__':
-    import config
-    lock = mp.Lock()
-    result_q = mp.Queue()
+
+    ppservers = ("*",)
+    # Creates jobserver with automatically detected number of workers
+    job_server = pp.Server(0,ppservers=ppservers)
+
+    result_q = multiprocessing.Queue()
     jobs = []
     dir_path = 'tests/50/parallel/'
-    input_file_name = 'input_vector_50_2-4.pickle'
+    input_file_name = 'input_vector_50_7.pickle'
     test_vectors = pickle.load(open(dir_path+input_file_name, 'rb'))
     for test_case in test_vectors:
         #if test_case['iteration'] < 3:
@@ -1149,9 +1159,11 @@ if __name__ == '__main__':
         config.sp_alg_str = "Dijkstra"
         config.start = time.time()
         generate_independent_perm_blocks(vnrs_list,result_q)
+
+
         for j in jobs:
             j.start()
-        overall_results = mp.Queue()
+        overall_results = multiprocessing.Queue()
         for j in jobs:
             res = result_q.get()
             #print "res",res.items()

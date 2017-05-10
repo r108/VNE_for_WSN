@@ -14,6 +14,15 @@ class WSN():
 
 
     def __init__(self,n,m, init_adj_list):
+        self.__WSN_Substrate = nx.DiGraph()
+        self.__link_weights = dict()
+        self.__link_quality = dict()
+        self.__adj_list = dict()
+        self.__two_hops_list = dict()
+        self.__conflicting_links = dict()
+        self.__positions = dict()
+
+
         #self.convert_to_adj_list(n,m)
 
         ##replaces the old substrate init and parses the new adjacency list format with the plr
@@ -132,15 +141,23 @@ class WSN():
 
 
     def parse_init_adj_list(self, init_adj_list):
+        # init_adj_list is a tuple consisting of a list of coordinates for each nodes as well as the adjacencies
         adj_list = {}
         link_quality = {}
+        print "init_adj_list", init_adj_list
         for node in init_adj_list:
+            if node % 2 == 0:
+                services = ["tmp","hum","lgt"]
+            else:
+                services = ["tmp","co2"]
            # print(node)
-            self.__WSN_Substrate.add_node(node, {'rank': 1, 'load': 1})
+           #  self.__WSN_Substrate.add_node(node, {'rank': 1, 'load': 1})
+            self.__WSN_Substrate.add_node(node, {'rank': 1, 'load': 1, 'zone': 1, 'services': services})
             neighbor_list = []
             for neighbor in init_adj_list.get(node):
                 link_weight = LinkCost(neighbor[1], 1)
-                self.__WSN_Substrate.add_edge(node, neighbor[0], {'plr': neighbor[1], 'load': 1, 'weight': link_weight.get_weight(link_weight)})
+                #print "neigh",neighbor
+                self.__WSN_Substrate.add_edge(node, neighbor[0], {'plr': neighbor[1], 'load': 0, 'weight': link_weight.get_weight(link_weight)})
                 link_quality.update({(node, neighbor[0]):neighbor[1]})
                 #self.__link_weights[(n, neighbor)] = 1
                 neighbor_list.append(neighbor[0])
@@ -217,6 +234,12 @@ class WSN():
         #self.__adj_list = self.convert_to_adj_list(10,10)
         return self.__adj_list
 
+    def set_nones_position(self, pos):
+        positions = {}
+        for i,p in enumerate(pos):
+            positions.update({i:p})
+        #print "positions",positions
+        self.__positions = positions
 
     def get_nodes_position(self):
 
@@ -277,7 +300,7 @@ class WSN():
         55:(3,3),
         56:(3,3.5)}
 
-        self.__positions = position
+        #self.__positions = position
         return self.__positions
 
 
