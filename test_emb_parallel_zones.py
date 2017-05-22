@@ -137,9 +137,9 @@ def check_link_reliability_constraints(shortest_path, required_reliability,wsn):
                 #print "plr", plr
             #print u,v, "plr ",(1- wsn[u][v]['plr']/100.0),multiprocessing.current_process().name
         path_reliability = reduce(lambda x, y: x * y, link_list)
-#        if path_reliability <= required_reliability/100:
+        if path_reliability <= required_reliability/100:
 
-        if path_reliability <= 1 - required_reliability/100:
+ #       if path_reliability <= 1 - required_reliability/100:
             #if config.iteration == 82:
                 #print "FAILED path_reliability",path_reliability
            # print path_reliability,"RELIABILITY FAILS",shortest_path
@@ -2044,7 +2044,7 @@ def write_to_File():
     if is_fixed_vnr:
         output_file_name = dir_path + 'results/'  + str(num_vnrs) + '/' + str(start_iter)+'_'+str(finish_iter)+'_' + 'fixed_vnrs_' + str(fixed_iter) + '_' + input_file_name
     else:
-        output_file_name = dir_path + 'results/' + str(num_vnrs) + '/' + str(start_iter) + '_' + str(finish_iter) + '_' + input_file_name
+        output_file_name = dir_path + 'results/test/' + str(num_vnrs) + '/' + str(start_iter) + '_' + str(finish_iter) + '_' + input_file_name
     try:
         with open(output_file_name, 'w') as handle:
             pickle.dump(config.result_vectors, handle)
@@ -2058,12 +2058,12 @@ if __name__ == '__main__':
 
     has_not_completed = True
     #  if True the same request is used for all iterations, different request for each otherwise
-    is_fixed_vnr = True
+    is_fixed_vnr = False #True
 
-    num_vnrs = 8
+    num_vnrs = 1
     fixed_iter = 4
-    iter_limit = 499
-    iter = 10
+    iter_limit = 999
+    iter = 1000
     start_iter = 0
     finish_iter = start_iter + iter
 
@@ -2165,7 +2165,7 @@ if __name__ == '__main__':
                     min_hops_dict = []
                     min_hops_dict = get_min_hops(config.main_sink)
                     print "min_hops_dict",min_hops_dict
-                    vis.display_edge_attr(config.wsn)
+                    #vis.display_edge_attr(config.wsn)
                     #vis.display_node_attr(config.wsn)
 
                     print nx.__file__
