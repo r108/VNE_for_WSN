@@ -69,7 +69,9 @@ def update_node_attribs(nodes, node, load):
 
 def update_link_attribs(wsn,u, v, plr, load):
     config.total_operations += 1
-    current_link_weight = LinkCost(wsn[u][v]['plr'], wsn[u][v]['load'])
+
+    #current_link_weight = LinkCost(wsn[u][v]['plr'], wsn[u][v]['load'])
+
 #    if plr is -1:
 #        wsn[u][v]['plr'] = wsn[u][v]['plr']
 #    else:
@@ -77,10 +79,13 @@ def update_link_attribs(wsn,u, v, plr, load):
     if load is -1:
         wsn[u][v]['load'] = wsn[u][v]['load']
     else:
+        # update link load
         wsn[u][v]['load'] += load
     link_weight = LinkCost(wsn[u][v]['plr'], wsn[u][v]['load'])
+    # update link weight
     wsn[u][v]['weight'] = link_weight.get_weight(link_weight)
-    return current_link_weight.get_weight(current_link_weight)
+    # return current link weight
+    #return current_link_weight.get_weight(current_link_weight)
 
 def on_line_vn_request():
     source = input(" source node: ")
@@ -108,8 +113,11 @@ def map_links_cost(e_list, e_set, link_requirement,wsn):
     for u,v in e_set:
         config.total_operations += 1
         required = (e_list.count((u,v)) * link_requirement['load'])
-        current_weight = update_link_attribs(wsn, int(u), int(v), link_requirement['plr'], required)
-        link_embedding_cost +=(required * current_weight) #weighted cost
+        current_weight = wsn[u][v]['weight']
+        update_link_attribs(wsn, int(u), int(v), link_requirement['plr'], required)
+        link_embedding_cost +=current_weight #weighted cost
+
+        #link_embedding_cost +=(required * current_weight) #weighted cost
         #link_embedding_cost += (required  * wsn[u][v]['plr'])
     return link_embedding_cost
 
@@ -317,7 +325,7 @@ def commit(VN_nodes, VN_links, node_requirement, link_requirement,e_list, e_list
         config.active_vns.append(current_vn)
 
     config.current_perm_emb_costs.update({path_nodes[0]: cost})
-    config.overall_cost += cost
+    #config.overall_cost += cost
     #show_dataStructs("COMMITTED")
 
 def verify_feasibility(link_requirement, frm, to, node_requirement):
@@ -955,6 +963,12 @@ def reinitialize():
     config.src_loads = []
 
     config.subset_sums = []
+
+def calculate_cost():
+    config.overall_cost = 0.0
+    for u, v in config.wsn_for_this_perm.edges():
+        config.overall_cost += config.wsn_for_this_perm[u][v]['weight']
+
 
 def map_nodes(vnrs_list):
 
@@ -1815,6 +1829,7 @@ def process_independent_perm_block(independent_perm_block,result_q, min_acceptan
         if i > 1:
             config.perms_list.pop(i - 2)
         current_accepted = int(len(config.VWSNs))
+        calculate_cost()
         config.current_perm_results.update({str(config.current_key_prefix): {'permutation':i,'acceptance': float(current_accepted)/float(config.numvn),
                                                                              'overall_cost': float(config.overall_cost),
                                                                              'vwsns': list(config.VWSNs)}})
@@ -1857,7 +1872,8 @@ def process_independent_perm_block(independent_perm_block,result_q, min_acceptan
     #print "skipit", config.skipit
 
 def evaluate(is_debug):
-
+    #if config.current_perm_block_best['acceptance'] != config.current_perm_block_acceptance:
+        #print config.current_perm_block_best['acceptance'], config.current_perm_block_acceptance,"config.current_perm_block_acceptance"
     config.eval_counter += 1
 
     perm_result = copy.deepcopy(config.current_perm_results[config.current_perm_results.keys()[0]])
@@ -1873,30 +1889,40 @@ def evaluate(is_debug):
         config.first_find = perm_result['permutation']
         #print "config.first_find", config.first_find
         #print multiprocessing.current_process(),"perm_result['overall_cost']", perm_result['overall_cost'], "perm", perm_result['permutation']
-    if config.current_perm_block_acceptance == perm_result['acceptance']:
+    #if config.current_perm_block_acceptance == perm_result['acceptance']:
+    #print config.current_perm_block_best['acceptance'] ,perm_result['acceptance'],config.current_perm_block_best['overall_cost'], perm_result['overall_cost']
+    if config.current_perm_block_best['acceptance'] == perm_result['acceptance']:
+
         #print "= config.current_perm_block_acceptance == perm_result['acceptance']", config.current_perm_block_acceptance , perm_result['acceptance']
-        if config.current_perm_block_cost > perm_result['overall_cost']:
+        #if config.current_perm_block_cost > perm_result['overall_cost']:
+        if config.current_perm_block_best['overall_cost'] > perm_result['overall_cost']:
+            #print '=>'
             # print min_feasible_vnrs, multiprocessing.current_process().name,config.min_feasible_vnrs, config.current_perm_block_acceptance, "=", perm_result['acceptance'], "overall_cost", perm_result['overall_cost'], "perm", perm_result['permutation']
-            config.current_perm_block_cost = perm_result['overall_cost']
-            config.current_perm_block_best = {'process': config.proc, 'first_find': config.first_find,
-                                              'permutation': perm_result['permutation'],
-                                              'acceptance': perm_result['acceptance'],
-                                              'overall_cost': perm_result['overall_cost'],
+            #config.current_perm_block_cost = perm_result['overall_cost']
+            config.current_perm_block_best = {'process': int(config.proc), 'first_find': int(config.first_find),
+                                              'permutation': int(perm_result['permutation']),
+                                              'acceptance': float(perm_result['acceptance']),
+                                              'overall_cost': float(perm_result['overall_cost']),
                                               'committed': nx.DiGraph(config.wsn_for_this_perm),
-                                              'mappings': perm_result['vwsns'],'srcs':config.src_loads}
+                                              'mappings': list(perm_result['vwsns']),'srcs':list(config.src_loads)}
             config.current_perm_block_best.update({
                 'proc_time': time.time() - config.start})
             config.committed_wsn = nx.DiGraph(config.wsn_for_this_perm)
-    elif config.current_perm_block_acceptance < perm_result['acceptance']:
+    #elif config.current_perm_block_acceptance < perm_result['acceptance']:
+    elif config.current_perm_block_best['acceptance'] < perm_result['acceptance']:
+        #print'=_'
         #print "< config.current_perm_block_acceptance < perm_result['acceptance']", config.current_perm_block_acceptance , perm_result['acceptance']
         config.first_find = perm_result['permutation']
-        config.current_perm_block_acceptance = perm_result['acceptance']
+#        config.current_perm_block_acceptance = perm_result['acceptance']
         #print min_feasible_vnrs, multiprocessing.current_process().name,config.min_feasible_vnrs,config.current_perm_block_acceptance,"<",perm_result['acceptance'], "overall_cost", perm_result['overall_cost'], "perm", perm_result['permutation']
 
-        config.current_perm_block_cost = perm_result['overall_cost']
-        config.current_perm_block_best = {'process': config.proc,'first_find': config.first_find,'permutation': perm_result['permutation'],
-            'acceptance': perm_result['acceptance'],'overall_cost': perm_result['overall_cost'],
-            'committed': nx.DiGraph(config.wsn_for_this_perm), 'mappings':perm_result['vwsns'],'srcs':config.src_loads}
+#        config.current_perm_block_cost = perm_result['overall_cost']
+        config.current_perm_block_best = {'process': int(config.proc), 'first_find': int(config.first_find),
+                                          'permutation': int(perm_result['permutation']),
+                                          'acceptance': float(perm_result['acceptance']),
+                                          'overall_cost': float(perm_result['overall_cost']),
+                                          'committed': nx.DiGraph(config.wsn_for_this_perm),
+                                          'mappings': list(perm_result['vwsns']), 'srcs': list(config.src_loads)}
         config.current_perm_block_best.update({
             'proc_time': time.time() - config.start})
         config.committed_wsn = nx.DiGraph(config.wsn_for_this_perm)
@@ -2010,6 +2036,8 @@ def select_best(perm_block_results):
 
 def generate_output(best):
     acceptance_rate = float(best['acceptance'])# / float(config.numvn)
+    slice_size = math.factorial(config.numvn_to_permute) / multiprocessing.cpu_count()
+    first_f = int(best['first_find']+ (slice_size* best['process']))
     output_dict = {
         # First three copied from input vector
         'nwksize': config.nwksize,
@@ -2017,6 +2045,7 @@ def generate_output(best):
         'numvn_to_permute': config.numvn_to_permute,
         'iteration': config.iteration,
         # Following result from algorithm execution
+        'first_find': first_f,
         'proc_time': config.proc_time,
         'acceptance': acceptance_rate,
         'mapping': best['mappings'],
@@ -2060,7 +2089,7 @@ if __name__ == '__main__':
     #  if True the same request is used for all iterations, different request for each otherwise
     is_fixed_vnr = False #True
 
-    num_vnrs = 1
+    num_vnrs = 7
     fixed_iter = 4
     iter_limit = 999
     iter = 1000
@@ -2075,7 +2104,7 @@ if __name__ == '__main__':
 
     dir_path = '../VNE_LP_/input_vectors/with_node_constraints/variable_topology/varied_topology/'#'tests/50/parallel/'
 
-    input_file_name = 'input_vector_50_' + str(num_vnrs) + '.pickle'
+    input_file_name = 'input_vector_150_' + str(num_vnrs) + '.pickle'
     test_vectors = pickle.load(open(dir_path+input_file_name, 'rb'))
 
     print "test_vectors",type(test_vectors)
@@ -2165,6 +2194,10 @@ if __name__ == '__main__':
                     min_hops_dict = []
                     min_hops_dict = get_min_hops(config.main_sink)
                     print "min_hops_dict",min_hops_dict
+
+
+                    #print "pre embedding"
+                    init_cost = wsn_substrate.get_initial_link_weight()
                     #vis.display_edge_attr(config.wsn)
                     #vis.display_node_attr(config.wsn)
 
@@ -2203,6 +2236,7 @@ if __name__ == '__main__':
                             #print 'overall_cost', float(config.overall_cost)
 
                     config.subset_sums.sort(key=lambda x: x[0])  # , reverse=True)
+
                     best_combo = ()
                     least_sink_load = 100
                     low_bound = 0
@@ -2212,15 +2246,17 @@ if __name__ == '__main__':
                     #for vnr in sorted_feasible_vnrs_list:
                         #config.current_key_prefix.append(vnr[3]['src'])
 
-
                     inital_bound = get_lower_bound(sorted_feasible_vnrs_list,None)
 
                     print "inital_bound", inital_bound
+                    calculate_cost()
                     config.current_perm_results.update(
                         {str(config.current_key_prefix): {'permutation': -2, 'acceptance': float(int(len(config.VWSNs)))/float(config.numvn),
                                                           'overall_cost': float(config.overall_cost),
                                                           'vwsns': list(config.VWSNs)}})
                     print "config.current_perm_results",config.current_perm_results
+                    print "init_cost_",init_cost
+                    # establish initial result baseline
                     evaluate(True)
                     #print "evaluate -1"
                     config.current_perm_block_best.update({
@@ -2229,6 +2265,7 @@ if __name__ == '__main__':
                     config.first_best = dict(config.current_perm_block_best)
                     src_combo = []
                     sum_load = 0
+
                     if inital_bound > 0:
                         for vn in config.first_best['mappings']:
                             l = 0
@@ -2258,10 +2295,16 @@ if __name__ == '__main__':
                             #print vnr_set
                             low_bound = get_lower_bound(sorted_feasible_vnrs_list,sum_src)
 
-
+                            #print "low_bound",low_bound
+                            #print config.current_perm_results.keys()
+                            #print config.current_key_prefix
+                            #print float(len(config.VWSNs)/config.numvn), len(config.VWSNs), config.numvn
+                            #print float(len(config.VWSNs))/float(config.numvn)
+                            #print "config.current_perm_results",config.current_perm_results
                             #print low_bound,sum_src[0]
+                            calculate_cost()
                             config.current_perm_results.update(
-                                {str(config.current_key_prefix): {'permutation': -1, 'acceptance': float(len(config.VWSNs)/config.numvn),
+                                {str(config.current_key_prefix): {'permutation': -1, 'acceptance': float(int(len(config.VWSNs)))/float(config.numvn),
                                                                   'overall_cost': float(config.overall_cost),
                                                                   'vwsns': list(config.VWSNs)}})
 
@@ -2278,12 +2321,18 @@ if __name__ == '__main__':
                                 #print config.wsn_for_this_perm.edge[0][adjacencies[0][0]]['load'],"-",sum_src[1]
                             elif low_bound == inital_bound:
                                 #if sum_src[1] < least_sink_load: #config.wsn_for_this_perm.edge[0][adjacencies[0][0]]['load'] < :
-                                if config.current_perm_block_cost > config.first_best['overall_cost']:
+                                if config.overall_cost < config.current_perm_block_best['overall_cost']:
+                                #if config.overall_cost < config.first_best['overall_cost']:
+                                #if config.current_perm_block_cost > config.first_best['overall_cost']:
                                     inital_bound = low_bound
                                     best_combo = sum_src
                                     least_sink_load = sum_src[1]
-                                    #print " == config.current_perm_results", config.current_perm_results[config.current_perm_results.keys()[0]]
+                                    #print "init_cost_", init_cost
+
+                                    #print "pre- best",config.current_perm_block_best['overall_cost']
+                                    #print config.overall_cost, config.first_best['overall_cost']," == config.current_perm_results", config.current_perm_results[config.current_perm_results.keys()[0]]['overall_cost']
                                     evaluate(True)
+                                    #print "post- best",config.current_perm_block_best['overall_cost']
                                     #print "evaluate -3"
                                     config.current_perm_block_best.update({
                                         'proc_time': time.time() - config.start})
@@ -2295,6 +2344,12 @@ if __name__ == '__main__':
                         print "size-",len(vnr_set)
                     print (time.time() - config.start),"first_best",config.first_best
 
+                    first_cost = 0
+                    first_load = 0
+                    if inital_bound > 0:
+                        for u, v in config.first_best['committed'].edges():
+                            first_cost += config.first_best['committed'][u][v]['weight']
+                            first_load += config.first_best['committed'][u][v]['load']
 
                     #print "setting lower bound finished in",
                     #lower_bound = get_lower_bound(sorted_feasible_vnrs_list)
@@ -2308,7 +2363,7 @@ if __name__ == '__main__':
                     #        print (request[3]['src'], request[3]['sink_load'])
                     #        reduced_sorted_feasible_vnrs_list.append(request)
                     #sorted_feasible_vnrs_list = reduced_sorted_feasible_vnrs_list
-    ################  exhaustive paralle search starts here
+    ################  exhaustive parallel search starts here
                     generate_independent_perm_blocks(sorted_feasible_vnrs_list, result_q, inital_bound, min_feasible_q, l_bound, solution_progress_q )
 
                     del config.current_vnlist
@@ -2360,6 +2415,21 @@ if __name__ == '__main__':
 
 
                         print "Sink link load is ",best['committed'].edge[0][adjacencies[0][0]]['load']
+
+                        print "post embedding"
+                        final_cost = 0
+                        final_load = 0
+                        for u,v in best['committed'].edges():
+                            final_cost += best['committed'][u][v]['weight']
+                            final_load += best['committed'][u][v]['load']
+                            #print best['committed'][u][v]
+                        #vis.display_edge_attr(best['committed'])
+                        print "init cost", init_cost
+                        print "first cost", first_cost
+                        print "first load", first_load
+                        print "final cost",final_cost
+                        print "final load", final_load
+
 
                         config.acceptance = config.max_accepted_vnrs
                         generate_output(best)
