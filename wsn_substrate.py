@@ -11,6 +11,7 @@ class WSN():
     __two_hops_list = dict()
     __conflicting_links = dict()
     __positions = dict()
+    __inital_weight = 0
 
 
     def __init__(self,n,m, init_adj_list):
@@ -21,6 +22,7 @@ class WSN():
         self.__two_hops_list = dict()
         self.__conflicting_links = dict()
         self.__positions = dict()
+        self.__inital_weight = 0
 
 
         #self.convert_to_adj_list(n,m)
@@ -68,7 +70,7 @@ class WSN():
             self.__two_hops_list[n] = list(set([x for x in if_list if x != n]))
         # print("Interferences ",self.__two_hops_list)
 
-    def calculate_conflicting_links(self, path_nodes):
+    def calculate_conflicting_links2(self, path_nodes):
         self.__adj_list
         tx_nodes = copy.deepcopy(path_nodes)
         tx_nodes.pop()
@@ -112,6 +114,29 @@ class WSN():
             effected_edges_set = list(set(effected_edges))
             return effected_edges, effected_edges_set
 
+    def calculate_conflicting_links(self, path_nodes):
+        self.__adj_list
+        tx_nodes = copy.deepcopy(path_nodes)
+        tx_nodes.pop()
+        effected_edges = []
+        for i, tx in enumerate(tx_nodes):
+            visited_nodes = []
+            visited_nodes.append(tx)
+            for n in self.__adj_list[tx]:
+                effected_edges.append((tx, n))
+                effected_edges.append((n, tx))
+                for nn in self.__adj_list[n]:
+                    effected_edges.append((nn, n))
+            rx = path_nodes[i + 1]
+
+            for n in self.__adj_list[rx]:
+                effected_edges.append((rx, n))
+                effected_edges.append((n, rx))
+                for nn in self.__adj_list[n]:
+                    effected_edges.append((n, nn))
+            effected_edges_set = list(set(effected_edges))
+            return effected_edges, effected_edges_set
+
 
     def init_conflicting_links(self, adj_list):
         for node in adj_list:
@@ -144,7 +169,7 @@ class WSN():
         # init_adj_list is a tuple consisting of a list of coordinates for each nodes as well as the adjacencies
         adj_list = {}
         link_quality = {}
-        print "init_adj_list", init_adj_list
+        #print "init_adj_list", init_adj_list
         for node in init_adj_list:
             if node % 2 == 0:
                 services = ["tmp","hum","lgt"]
@@ -155,9 +180,11 @@ class WSN():
             self.__WSN_Substrate.add_node(node, {'rank': 1, 'load': 1, 'zone': 1, 'services': services})
             neighbor_list = []
             for neighbor in init_adj_list.get(node):
-                link_weight = LinkCost(neighbor[1], 1)
+                substrate_link = LinkCost(neighbor[1], 1)
                 #print "neigh",neighbor
-                self.__WSN_Substrate.add_edge(node, neighbor[0], {'plr': neighbor[1], 'load': 0, 'weight': link_weight.get_weight(link_weight)})
+                link_weight = substrate_link.get_weight(substrate_link)
+                self.__inital_weight += link_weight
+                self.__WSN_Substrate.add_edge(node, neighbor[0], {'plr': neighbor[1], 'load': 0, 'weight': link_weight})
                 link_quality.update({(node, neighbor[0]):neighbor[1]})
                 #self.__link_weights[(n, neighbor)] = 1
                 neighbor_list.append(neighbor[0])
@@ -303,8 +330,6 @@ class WSN():
         #self.__positions = position
         return self.__positions
 
-
-
     def convert_to_adj_list(self,n,m):
         grid = nx.grid_2d_graph(int(n), int(m))
         d_nodes = {}
@@ -322,7 +347,8 @@ class WSN():
         self.__adj_list = d_adj
         return d_adj
 
-
+    def get_initial_link_weight(self):
+        return self.__inital_weight
 
 
 
