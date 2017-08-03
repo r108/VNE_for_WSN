@@ -115,7 +115,7 @@ def map_links_cost(e_list, e_set, link_requirement,wsn):
         required = (e_list.count((u,v)) * link_requirement['load'])
         current_weight = wsn[u][v]['weight']
         update_link_attribs(wsn, int(u), int(v), link_requirement['plr'], required)
-        link_embedding_cost +=current_weight #weighted cost
+        link_embedding_cost += current_weight #weighted cost
 
         #link_embedding_cost +=(required * current_weight) #weighted cost
         #link_embedding_cost += (required  * wsn[u][v]['plr'])
@@ -1397,8 +1397,6 @@ def subset_sum(numbers, target, partial=[]):
             #duplicates[v[3]['src']] += 1
         except:
             print "ERROR APPENDING PARTIAL SUM"
-
-
     if s >= target:
         return  # if we reach the number why bother to continue
 
@@ -1526,6 +1524,11 @@ def find_best_source(vnr,indx):
 def generate_independent_perm_blocks(vnrs_list, result_q, min_acceptance, min_feasible_q, min_accept, solution_progress_q):
     no_of_processes = multiprocessing.cpu_count()
     #print "no_of_processes", no_of_processes
+
+
+    print "~~~~~~~~~~~~~~~"
+    for vnrr in vnrs_list:
+        print vnrr
 ############################################################################
     loads = []
  #   for vnr in vnrs_list:
@@ -2036,8 +2039,27 @@ def select_best(perm_block_results):
 
 def generate_output(best):
     acceptance_rate = float(best['acceptance'])# / float(config.numvn)
-    slice_size = math.factorial(config.numvn_to_permute) / multiprocessing.cpu_count()
-    first_f = int(best['first_find']+ (slice_size* best['process']))
+    cpu_count = multiprocessing.cpu_count()
+    print "cpus-",cpu_count
+
+    if config.numvn_to_permute > 3:
+        slice_size = math.factorial(config.numvn_to_permute) / 4
+    else:
+        slice_size = math.factorial(config.numvn_to_permute)
+
+    #slice_size = math.factorial(config.numvn_to_permute) / cpu_count
+
+    print slice_size,"slice size of", math.factorial(config.numvn_to_permute), multiprocessing.cpu_count()
+
+    #if is_pid_offset:
+    #    p_id = progress[i]['proc_id'] - pid_offset
+    #else:
+    #    p_id = progress[i]['proc_id']
+
+    first_f = int(best['first_find']+ (slice_size * (best['process'] - 1)))
+
+    print first_f, "first find of first_find, process", best['first_find'], best['process']
+
     output_dict = {
         # First three copied from input vector
         'nwksize': config.nwksize,
@@ -2045,7 +2067,8 @@ def generate_output(best):
         'numvn_to_permute': config.numvn_to_permute,
         'iteration': config.iteration,
         # Following result from algorithm execution
-        'first_find': first_f,
+        'first_find': first_f,  # unclear/incorrect
+        'process': best['process'],
         'proc_time': config.proc_time,
         'acceptance': acceptance_rate,
         'mapping': best['mappings'],
@@ -2073,7 +2096,7 @@ def write_to_File():
     if is_fixed_vnr:
         output_file_name = dir_path + 'results/'  + str(num_vnrs) + '/' + str(start_iter)+'_'+str(finish_iter)+'_' + 'fixed_vnrs_' + str(fixed_iter) + '_' + input_file_name
     else:
-        output_file_name = dir_path + 'results/test/' + str(num_vnrs) + '/' + str(start_iter) + '_' + str(finish_iter) + '_' + input_file_name
+        output_file_name = dir_path2 + 'results/test/' + str(num_vnrs) + '/' + str(start_iter) + '_' + str(finish_iter) + '_' + input_file_name + '-'
     try:
         with open(output_file_name, 'w') as handle:
             pickle.dump(config.result_vectors, handle)
@@ -2089,10 +2112,14 @@ if __name__ == '__main__':
     #  if True the same request is used for all iterations, different request for each otherwise
     is_fixed_vnr = False #True
 
-    num_vnrs = 7
+    nwk_size = 150
+    num_vnrs = 6
     fixed_iter = 4
     iter_limit = 999
-    iter = 1000
+    if num_vnrs == 8:
+        iter = 200
+    else:
+        iter = 1000
     start_iter = 0
     finish_iter = start_iter + iter
 
@@ -2102,9 +2129,10 @@ if __name__ == '__main__':
     # Creates jobserver with automatically detected number of workers
     job_server = pp.Server(0,ppservers=ppservers)
 
-    dir_path = '../VNE_LP_/input_vectors/with_node_constraints/variable_topology/varied_topology/'#'tests/50/parallel/'
+    dir_path = '/media/roland/Docker/ftp/results/InputFiles/'
+    dir_path2 = '../VNE_LP_/input_vectors/with_node_constraints/variable_topology/varied_topology/'#'tests/50/parallel/'
 
-    input_file_name = 'input_vector_150_' + str(num_vnrs) + '.pickle'
+    input_file_name = 'input_vector_' + str(nwk_size) + '_' + str(num_vnrs) + '.pickle'
     test_vectors = pickle.load(open(dir_path+input_file_name, 'rb'))
 
     print "test_vectors",type(test_vectors)
